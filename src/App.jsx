@@ -21,9 +21,6 @@ const HISTORICAL_API_URL =
 const LAST_API_URL =
   "https://api.thingspeak.com/channels/2998313/feeds/last.json";
 
-// URL del Canal Completo
-const THINGSPEAK_CHANNEL_URL = "https://thingspeak.mathworks.com/channels/2998313";
-
 // Coordenadas del sensor
 const LAT = -33.4489;
 const LON = -70.6693;
@@ -107,7 +104,7 @@ const App = () => {
       ? 'bg-red-600 text-white shadow-xl transform scale-105 transition duration-150'
       : 'bg-white text-gray-800';
   
-  // --- FUNCIONES DE GRÁFICOS (COMPLETAS) ---
+  // --- FUNCIONES DE GRÁFICOS ---
   const getChartData = (fieldKey, label, color) => {
     return {
         labels: historicalData ? historicalData.map(feed => new Date(feed.created_at).toLocaleTimeString('es-CL')) : [],
@@ -206,7 +203,7 @@ const App = () => {
             <header className="flex items-center gap-2 mb-4">
               <img src="/logo.png" className="h-16 w-auto" alt="Ígneo Logo" /> 
               <h1 className="text-4xl font-extrabold text-red-600 drop-shadow">
-                Ígnio Monitor de Incendio
+                Ígneo Monitor de Incendio
               </h1>
             </header>
 
