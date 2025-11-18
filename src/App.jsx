@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense } from "react"; // <-- Importaciones de React.lazy y Suspense
+import { useEffect, useState, lazy, Suspense } from "react"; 
 import { Icon } from 'leaflet'; 
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
@@ -14,9 +14,7 @@ ChartJS.register(
   Legend
 );
 
-// -----------------------------------------------------------
-// SOLUCIÓN AL ERROR: Carga Dinámica del Componente del Mapa
-// -----------------------------------------------------------
+// --- CARGA DINÁMICA DEL MAPA (FIX para Vercel) ---
 const LazyMap = lazy(() => 
     import('react-leaflet').then(module => ({ 
         default: module.MapContainer,
@@ -39,8 +37,6 @@ const THINGSPEAK_CHANNEL_URL = "https://thingspeak.mathworks.com/channels/299831
 // Coordenadas del sensor
 const LAT = -33.4489;
 const LON = -70.6693;
-
-// Umbral de temperatura crítica
 const TEMP_CRITICA = 60; 
 
 // Icono (Requiere 'red-arrow.png' en public/)
@@ -56,6 +52,7 @@ const App = () => {
   const [historicalData, setHistoricalData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isBrowser, setIsBrowser] = useState(false); // <-- FIX para la inicialización
 
   // --- LÓGICA DE ALERTA ---
   const getAlertStatus = (data) => {
@@ -107,6 +104,9 @@ const App = () => {
   };
 
   useEffect(() => {
+    // 1. Marca que estamos en el navegador para permitir la carga del mapa
+    setIsBrowser(true); 
+    // 2. Inicia la obtención de datos
     fetchData(); 
     const interval = setInterval(fetchData, 5000); 
     return () => clearInterval(interval);
@@ -119,7 +119,7 @@ const App = () => {
       ? 'bg-red-600 text-white shadow-xl transform scale-105 transition duration-150'
       : 'bg-white text-gray-800';
   
-  // --- FUNCIONES DE GRÁFICOS ---
+  // --- FUNCIONES DE GRÁFICOS (COMPLETAS) ---
   const getChartData = (fieldKey, label, color) => {
     return {
         labels: historicalData ? historicalData.map(feed => new Date(feed.created_at).toLocaleTimeString('es-CL')) : [],
@@ -143,7 +143,7 @@ const App = () => {
           legend: { display: false } 
       },
   });
-  // ------------------------------
+  // ------------------------------------------
 
   // Definiciones de Gráficos (Escalas fijas)
   const tempChartData = getChartData('field1', 'Temperatura (°C)', 'rgb(59, 130, 246)'); 
@@ -197,19 +197,6 @@ const App = () => {
             ))}
           </tbody>
         </table>
-
-        {/* ENLACE PARA REGISTROS DE LARGO PLAZO */}
-        <div className="mt-3 text-center">
-            <a 
-                href={THINGSPEAK_CHANNEL_URL} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-xs text-blue-600 hover:text-blue-800 font-semibold underline"
-            >
-                Ver Historial Completo en ThingSpeak
-            </a>
-        </div>
-        
       </div>
     );
   };
@@ -270,25 +257,31 @@ const App = () => {
                 <HistoryTable />
             </div>
 
-            {/* MAPA (USANDO CARGA DINÁMICA) */}
-            <Suspense fallback={
-                <div className="h-40 rounded-xl bg-gray-300 flex items-center justify-center shadow-lg">
-                    Cargando Mapa...
-                </div>
-            }>
-                <div className="h-40 rounded-xl overflow-hidden shadow-lg">
-                    <LazyMap
-                      center={[LAT, LON]}
-                      zoom={13}
-                      style={{ height: "100%", width: "100%" }}
-                    >
-                      <LazyMap.TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                      <LazyMap.Marker position={[LAT, LON]} icon={redArrowIcon}> 
-                        <LazyMap.Popup>Ubicación del sensor Ígneo</LazyMap.Popup>
-                      </LazyMap.Marker>
-                    </LazyMap>
-                </div>
-            </Suspense>
+            {/* MAPA (USANDO CARGA DINÁMICA y Browser Check) */}
+            <div className="h-40 rounded-xl overflow-hidden shadow-lg">
+                {isBrowser ? (
+                    <Suspense fallback={
+                        <div className="h-full rounded-xl bg-gray-300 flex items-center justify-center">
+                            Cargando Mapa...
+                        </div>
+                    }>
+                        <LazyMap
+                          center={[LAT, LON]}
+                          zoom={13}
+                          style={{ height: "100%", width: "100%" }}
+                        >
+                          <LazyMap.TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                          <LazyMap.Marker position={[LAT, LON]} icon={redArrowIcon}> 
+                            <LazyMap.Popup>Ubicación del sensor Ígneo</LazyMap.Popup>
+                          </LazyMap.Marker>
+                        </LazyMap>
+                    </Suspense>
+                ) : (
+                    <div className="h-full rounded-xl bg-gray-300 flex items-center justify-center">
+                        Inicializando Mapa...
+                    </div>
+                )}
+            </div>
           </div>
         </div>
       )}
