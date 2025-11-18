@@ -4,6 +4,7 @@ import { Icon } from 'leaflet';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 
+// Registro de componentes de Chart.js
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -20,14 +21,15 @@ const HISTORICAL_API_URL =
 const LAST_API_URL =
   "https://api.thingspeak.com/channels/2998313/feeds/last.json";
 
+// --- URL DEL CANAL COMPLETO (Para el botón de histórico) ---
+const THINGSPEAK_CHANNEL_URL = "https://thingspeak.mathworks.com/channels/2998313";
+
 // Coordenadas del sensor
 const LAT = -33.4489;
 const LON = -70.6693;
 
-// --- UMBRAL DE TEMPERATURA CRÍTICA (ACTUALIZADO A 60°C) ---
+// --- UMBRAL DE TEMPERATURA CRÍTICA (60°C) ---
 const TEMP_CRITICA = 60; 
-const HUMEDAD_MAX = 80;
-const HUMEDAD_MIN = 20;
 
 // Icono (Requiere 'red-arrow.png' en public/)
 const redArrowIcon = new Icon({
@@ -44,20 +46,18 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // --- LÓGICA DE ALERTA ---
   const getAlertStatus = (data) => {
     if (!data) return { isTempAlert: false, isSmokeAlert: false, cause: 'NORMAL' };
 
     const tempValue = parseFloat(data.field1);
     const smokeStatus = data.field4; 
-    const humidityValue = parseFloat(data.field2);
-
+    
     const isTempAlert = tempValue > TEMP_CRITICA; 
     const isSmokeAlert = smokeStatus !== 'NORMAL'; 
-    const isHumidityAlert = humidityValue < HUMEDAD_MIN || humidityValue > HUMEDAD_MAX; // Métrica informativa
+    
+    let cause = 'NORMAL';
 
-    let cause = data.field4; // Valor por defecto de ThingSpeak
-
-    // Sobrescribir la causa principal
     if (isSmokeAlert && isTempAlert) {
         cause = "ALERTA HUMO Y TEMP";
     } else if (isSmokeAlert) {
@@ -68,7 +68,7 @@ const App = () => {
         cause = "NORMAL";
     }
 
-    return { isTempAlert, isSmokeAlert, isHumidityAlert, cause };
+    return { isTempAlert, isSmokeAlert, cause };
   };
 
 
@@ -101,14 +101,14 @@ const App = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const { isTempAlert, isSmokeAlert, isHumidityAlert, cause } = getAlertStatus(lastData);
+  const { isTempAlert, isSmokeAlert, cause } = getAlertStatus(lastData);
   
   const getAlertClasses = (isAlert) => 
     isAlert 
       ? 'bg-red-600 text-white shadow-xl transform scale-105 transition duration-150'
       : 'bg-white text-gray-800';
-
-  // ... Funciones de Gráficos (sin cambios en la lógica) ...
+  
+  // Función de Gráficos
   const getChartData = (fieldKey, label, color) => {
     return {
         labels: historicalData ? historicalData.map(feed => new Date(feed.created_at).toLocaleTimeString('es-CL')) : [],
@@ -124,8 +124,16 @@ const App = () => {
     };
   };
 
-  const baseChartOptions = (titleText) => ({ /* ... */ });
-  
+  const baseChartOptions = (titleText) => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+          title: { display: true, text: titleText, font: { size: 14, weight: 'bold' } },
+          legend: { display: false } 
+      },
+  });
+
+  // Datos y Opciones de Gráficos (Escalas fijas)
   const tempChartData = getChartData('field1', 'Temperatura (°C)', 'rgb(59, 130, 246)'); 
   const tempChartOptions = baseChartOptions('Temperatura (°C)');
   tempChartOptions.scales = { y: { beginAtZero: true, max: 100 } };
@@ -152,7 +160,8 @@ const App = () => {
           {/* Fila 1: TÍTULO Y MÉTRICAS CLAVE (HEAD) */}
           <div className="flex flex-col items-center mb-6">
             <header className="flex items-center gap-2 mb-4">
-              <img src="/logo.png" className="h-12 w-auto" alt="Ígneo Logo" /> 
+              {/* Logo con tamaño ajustado a h-16 */}
+              <img src="/logo.png" className="h-16 w-auto" alt="Ígneo Logo" /> 
               <h1 className="text-4xl font-extrabold text-red-600 drop-shadow">
                 Ígnio Monitor de Incendio
               </h1>
@@ -165,7 +174,7 @@ const App = () => {
                   <span className="font-bold text-lg">Temperatura: <span className="text-2xl">{lastData.field1} °C</span></span>
                 </div>
                 
-                {/* Humedad (Informativa) */}
+                {/* Humedad (Informativa, sin alerta roja) */}
                 <div className={`p-4 bg-white text-gray-800 rounded-xl shadow-lg flex justify-between items-center text-left`}>
                   <span className="font-bold text-lg">Humedad: <span className="text-2xl">{lastData.field2} %</span></span>
                 </div>
@@ -188,7 +197,7 @@ const App = () => {
           {/* Fila 3: DATOS EXTRA y MAPA */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 w-full">
             
-            {/* INFO EXTRA */}
+            {/* INFO EXTRA y BOTÓN DE HISTORIAL */}
             <div className="p-4 bg-white rounded-xl shadow-lg">
                 <p className="text-sm">
                     **Diagnóstico y Estado:**
@@ -197,6 +206,16 @@ const App = () => {
                     <br/>**Estado de Humedad (Informativo):** {lastData.field2} %
                     <br/>**Temperatura Crítica:** Mayor a {TEMP_CRITICA}°C dispara alerta.
                 </p>
+
+                {/* BOTÓN DE ACCESO HISTÓRICO - Usando la URL proporcionada */}
+                <a 
+                    href={THINGSPEAK_CHANNEL_URL} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-150 text-xs"
+                >
+                    Ver Histórico Completo en ThingSpeak
+                </a>
             </div>
 
             {/* MAPA */}
