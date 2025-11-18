@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import { Icon } from 'leaflet'; // <-- IMPORTAR LA CLASE ICON DE LEAFLET
+import { Icon } from 'leaflet'; 
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 
+// 1. Registro de componentes de Chart.js
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -14,20 +15,23 @@ ChartJS.register(
   Legend
 );
 
+// URLs de ThingSpeak
 const HISTORICAL_API_URL =
   "https://api.thingspeak.com/channels/2998313/feeds.json?results=20"; 
 const LAST_API_URL =
   "https://api.thingspeak.com/channels/2998313/feeds/last.json";
 
+// Coordenadas del sensor
 const LAT = -33.4489;
 const LON = -70.6693;
 
-// --- DEFINICIÓN DEL ICONO PERSONALIZADO (FLECHA ROJA) ---
+// --- ICONO PERSONALIZADO PARA EL MAPA ---
+// Requiere el archivo 'red-arrow.png' en tu carpeta 'public/'
 const redArrowIcon = new Icon({
-  iconUrl: '/red-arrow.png', // <-- URL de tu imagen de flecha roja
-  iconSize: [38, 38],        // Tamaño del icono (ancho, alto)
-  iconAnchor: [19, 38],      // Punto del icono que corresponde a la ubicación del marcador (mitad inferior)
-  popupAnchor: [0, -38]      // Punto donde se abre el popup en relación al icono
+  iconUrl: '/red-arrow.png', 
+  iconSize: [38, 38],        
+  iconAnchor: [19, 38],      
+  popupAnchor: [0, -38]      
 });
 // --------------------------------------------------------
 
@@ -39,6 +43,7 @@ const App = () => {
 
   const fetchData = async () => {
     try {
+      // Obtener el ÚLTIMO DATO
       const lastRes = await fetch(LAST_API_URL);
       if (!lastRes.ok) throw new Error("Error de red al obtener el último dato.");
       const lastJson = await lastRes.json();
@@ -48,6 +53,7 @@ const App = () => {
       }
       setLastData(lastJson);
 
+      // Obtener DATOS HISTÓRICOS
       const historyRes = await fetch(HISTORICAL_API_URL);
       if (!historyRes.ok) throw new Error("Error de red al obtener datos históricos.");
       const historyJson = await historyRes.json();
@@ -62,9 +68,24 @@ const App = () => {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5000); 
+    const interval = setInterval(fetchData, 5000); // Actualización cada 5 segundos
     return () => clearInterval(interval);
   }, []);
+
+  // --- LÓGICA DE ALERTAS ---
+  const tempValue = lastData ? parseFloat(lastData.field1) : 0;
+  const humidityValue = lastData ? parseFloat(lastData.field2) : 0;
+  const isTempAlert = tempValue > 40; // Temperatura crítica
+  const isHumidityAlert = humidityValue < 20 || humidityValue > 80; // Humedad extrema
+  const isSmokeAlert = lastData && lastData.field4 !== 'NORMAL'; // Alerta de humo
+
+  // Clases dinámicas para las métricas superiores (cambio de color)
+  const getAlertClasses = (isAlert) => 
+    isAlert 
+      ? 'bg-red-600 text-white shadow-xl transform scale-105 transition duration-150'
+      : 'bg-white text-gray-800';
+  // --------------------------
+
 
   // Función para generar la estructura de datos común para los 3 gráficos
   const getChartData = (fieldKey, label, color) => {
@@ -82,11 +103,6 @@ const App = () => {
     };
   };
 
-  // Datos para los 3 Gráficos
-  const tempChartData = getChartData('field1', 'Temperatura (°C)', 'rgb(59, 130, 246)'); 
-  const humidityChartData = getChartData('field2', 'Humedad (%)', 'rgb(34, 197, 94)'); 
-  const smokeChartData = getChartData('field3', 'Nivel de Humo', 'rgb(249, 115, 22)'); 
-
   // Opciones base de Gráficos
   const baseChartOptions = (titleText) => ({
       responsive: true,
@@ -97,35 +113,24 @@ const App = () => {
       },
   });
 
-  // Opciones de TEMPERATURA (0-100)
+  // Datos y Opciones de TEMPERATURA
+  const tempChartData = getChartData('field1', 'Temperatura (°C)', 'rgb(59, 130, 246)'); 
   const tempChartOptions = baseChartOptions('Temperatura (°C)');
-  tempChartOptions.scales = {
-      y: {
-          beginAtZero: true,
-          max: 100, 
-      }
-  };
-
-  // Opciones de HUMEDAD (0-100)
-  const humidityChartOptions = baseChartOptions('Humedad (%)');
-  humidityChartOptions.scales = {
-      y: {
-          beginAtZero: true,
-          max: 100, 
-      }
-  };
+  tempChartOptions.scales = { y: { beginAtZero: true, max: 100 } };
   
-  // Opciones de HUMO (0-2500)
+  // Datos y Opciones de HUMEDAD
+  const humidityChartData = getChartData('field2', 'Humedad (%)', 'rgb(34, 197, 94)'); 
+  const humidityChartOptions = baseChartOptions('Humedad (%)');
+  humidityChartOptions.scales = { y: { beginAtZero: true, max: 100 } };
+  
+  // Datos y Opciones de HUMO
+  const smokeChartData = getChartData('field3', 'Nivel de Humo', 'rgb(249, 115, 22)'); 
   const smokeChartOptions = baseChartOptions('Nivel de Humo');
-  smokeChartOptions.scales = {
-      y: {
-          beginAtZero: true,
-          max: 2500, 
-      }
-  };
+  smokeChartOptions.scales = { y: { beginAtZero: true, max: 2500 } };
 
 
   return (
+    // Contenedor principal
     <div className="min-h-screen p-4 flex flex-col items-center bg-gray-100"> 
       
       {loading ? (
@@ -146,19 +151,19 @@ const App = () => {
 
             {/* BARRA DE MÉTRICAS SUPERIOR (3 columnas) */}
             <div className="w-full grid grid-cols-3 gap-4 max-w-4xl"> 
-                {/* Temp */}
-                <div className="p-4 bg-white rounded-xl shadow-lg flex justify-between items-center text-left">
-                  <span className="font-bold text-gray-700 text-lg">Temperatura: <span className="text-2xl text-red-600">{lastData.field1} °C</span></span>
+                {/* Temp con alerta */}
+                <div className={`p-4 rounded-xl shadow-lg flex justify-between items-center text-left ${getAlertClasses(isTempAlert)}`}>
+                  <span className="font-bold text-lg">Temperatura: <span className="text-2xl">{lastData.field1} °C</span></span>
                 </div>
                 
-                {/* Humedad */}
-                <div className="p-4 bg-white rounded-xl shadow-lg flex justify-between items-center text-left">
-                  <span className="font-bold text-gray-700 text-lg">Humedad: <span className="text-2xl text-blue-600">{lastData.field2} %</span></span>
+                {/* Humedad con alerta */}
+                <div className={`p-4 rounded-xl shadow-lg flex justify-between items-center text-left ${getAlertClasses(isHumidityAlert)}`}>
+                  <span className="font-bold text-lg">Humedad: <span className="text-2xl">{lastData.field2} %</span></span>
                 </div>
 
-                {/* Humo/Causa Detectada */}
-                <div className="p-4 bg-white rounded-xl shadow-lg flex justify-between items-center text-left">
-                  <span className="font-bold text-gray-700 text-lg">Humo: <span className={`text-2xl font-bold ${lastData.field4 === 'NORMAL' ? 'text-green-600' : 'text-red-600'}`}>✔️ {lastData.field4}</span></span>
+                {/* Humo/Causa Detectada con alerta */}
+                <div className={`p-4 rounded-xl shadow-lg flex justify-between items-center text-left ${getAlertClasses(isSmokeAlert)}`}>
+                  <span className="font-bold text-lg">Humo: <span className="text-2xl font-bold">✔️ {lastData.field4}</span></span>
                 </div>
             </div>
           </div>
@@ -166,23 +171,12 @@ const App = () => {
           {/* Fila 2: GRÁFICOS (3 columnas full-width) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
             
-            {/* GRÁFICO 1: TEMPERATURA */}
-            <div className="p-4 bg-white rounded-xl shadow-lg h-96">
-                <Line options={tempChartOptions} data={tempChartData} />
-            </div>
-
-            {/* GRÁFICO 2: HUMEDAD */}
-            <div className="p-4 bg-white rounded-xl shadow-lg h-96">
-                <Line options={humidityChartOptions} data={humidityChartData} />
-            </div>
-
-            {/* GRÁFICO 3: HUMO */}
-            <div className="p-4 bg-white rounded-xl shadow-lg h-96">
-                <Line options={smokeChartOptions} data={smokeChartData} />
-            </div>
+            <div className="p-4 bg-white rounded-xl shadow-lg h-96"> <Line options={tempChartOptions} data={tempChartData} /> </div>
+            <div className="p-4 bg-white rounded-xl shadow-lg h-96"> <Line options={humidityChartOptions} data={humidityChartData} /> </div>
+            <div className="p-4 bg-white rounded-xl shadow-lg h-96"> <Line options={smokeChartOptions} data={smokeChartData} /> </div>
           </div>
           
-          {/* Fila 3: DATOS EXTRA y MAPA (Horizontal, debajo de gráficos) */}
+          {/* Fila 3: DATOS EXTRA y MAPA */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 w-full">
             
             {/* INFO EXTRA */}
@@ -203,7 +197,7 @@ const App = () => {
                   style={{ height: "100%", width: "100%" }}
                 >
                   <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <Marker position={[LAT, LON]} icon={redArrowIcon}> {/* <-- APLICAR EL ICONO AQUI */}
+                  <Marker position={[LAT, LON]} icon={redArrowIcon}> 
                     <Popup>Ubicación del sensor Ígneo</Popup>
                   </Marker>
                 </MapContainer>
