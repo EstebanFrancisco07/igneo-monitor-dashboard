@@ -73,29 +73,49 @@ const App = () => {
   };
 
   // Datos para los 3 Gráficos
-  const tempChartData = getChartData('field1', 'Temperatura (°C)', 'rgb(59, 130, 246)'); // Cambiado a azul para la gráfica
-  const humidityChartData = getChartData('field2', 'Humedad (%)', 'rgb(34, 197, 94)'); // Verde
-  const smokeChartData = getChartData('field3', 'Nivel de Humo', 'rgb(249, 115, 22)'); // Naranja
+  const tempChartData = getChartData('field1', 'Temperatura (°C)', 'rgb(59, 130, 246)'); 
+  const humidityChartData = getChartData('field2', 'Humedad (%)', 'rgb(34, 197, 94)'); 
+  const smokeChartData = getChartData('field3', 'Nivel de Humo', 'rgb(249, 115, 22)'); 
 
-  // Opciones de Gráficos
+  // Opciones base de Gráficos
   const baseChartOptions = (titleText) => ({
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
           title: { display: true, text: titleText, font: { size: 14, weight: 'bold' } },
-          legend: { display: false } // Ocultar legendas para que el gráfico sea más limpio
+          legend: { display: false } 
       },
-      scales: { y: { beginAtZero: true } }
   });
 
+  // Opciones de TEMPERATURA (0-100)
   const tempChartOptions = baseChartOptions('Temperatura (°C)');
+  tempChartOptions.scales = {
+      y: {
+          beginAtZero: true,
+          max: 100, // <--- AJUSTE CLAVE: MAX 100 para T/H
+      }
+  };
+
+  // Opciones de HUMEDAD (0-100)
   const humidityChartOptions = baseChartOptions('Humedad (%)');
+  humidityChartOptions.scales = {
+      y: {
+          beginAtZero: true,
+          max: 100, // <--- AJUSTE CLAVE: MAX 100 para T/H
+      }
+  };
+  
+  // Opciones de HUMO (0-2500)
   const smokeChartOptions = baseChartOptions('Nivel de Humo');
-  smokeChartOptions.scales.y.max = 1024;
+  smokeChartOptions.scales = {
+      y: {
+          beginAtZero: true,
+          max: 2500, // <--- AJUSTE CLAVE: MAX 2500 para Humo/PPM
+      }
+  };
 
 
   return (
-    // Fondo más limpio y padding reducido
     <div className="min-h-screen p-4 flex flex-col items-center bg-gray-100"> 
       
       {loading ? (
@@ -103,7 +123,6 @@ const App = () => {
       ) : error ? (
         <p className="text-red-600 font-bold">{error}</p>
       ) : (
-        // CONTENEDOR PRINCIPAL: Ancho completo de la ventana (w-full)
         <div className="w-full"> 
           
           {/* Fila 1: TÍTULO Y MÉTRICAS CLAVE (HEAD) */}
@@ -127,13 +146,11 @@ const App = () => {
                   <span className="font-bold text-gray-700 text-lg">Humedad: <span className="text-2xl text-blue-600">{lastData.field2} %</span></span>
                 </div>
 
-                {/* Humo/Causa Detectada (Combinado en una sola métrica) */}
+                {/* Humo/Causa Detectada */}
                 <div className="p-4 bg-white rounded-xl shadow-lg flex justify-between items-center text-left">
                   <span className="font-bold text-gray-700 text-lg">Humo: <span className={`text-2xl font-bold ${lastData.field4 === 'NORMAL' ? 'text-green-600' : 'text-red-600'}`}>✔️ {lastData.field4}</span></span>
                 </div>
             </div>
-            
-            {/* Ocultamos las tarjetas originales, ya que están arriba */}
           </div>
           
           {/* Fila 2: GRÁFICOS (3 columnas full-width) */}
