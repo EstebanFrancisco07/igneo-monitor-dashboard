@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react"; 
+import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import { Icon } from 'leaflet'; 
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 
+// Registro de componentes de Chart.js
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -25,9 +26,8 @@ const LAT = -33.4489;
 const LON = -70.6693;
 
 // --- UMBRALES DE ALERTA ---
-const TEMP_CRITICA = 40;
-const HUMEDAD_MAX = 80;
-const HUMEDAD_MIN = 20;
+const TEMP_CRITICA = 40; 
+// Los umbrales de humedad (20%-80%) se eliminan de la lógica de alerta primaria.
 
 // Icono (Requiere 'red-arrow.png' en public/)
 const redArrowIcon = new Icon({
@@ -44,21 +44,19 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Función para determinar el estado de alerta y la causa a mostrar
+  // Función para determinar el estado de alerta principal y la causa a mostrar
   const getAlertStatus = (data) => {
     if (!data) return { isTempAlert: false, isSmokeAlert: false, cause: 'NORMAL' };
 
     const tempValue = parseFloat(data.field1);
     const smokeStatus = data.field4; 
-    const humidityValue = parseFloat(data.field2);
 
-    const isTempAlert = tempValue > TEMP_CRITICA;
-    const isSmokeAlert = smokeStatus !== 'NORMAL';
-    const isHumidityAlert = humidityValue < HUMEDAD_MIN || humidityValue > HUMEDAD_MAX;
+    // Solo verificamos Humo y Temperatura para las alertas principales
+    const isTempAlert = tempValue > TEMP_CRITICA; 
+    const isSmokeAlert = smokeStatus !== 'NORMAL'; 
+    
+    let cause = 'NORMAL';
 
-    let cause = data.field4; // Usa el valor original de ThingSpeak si no hay alerta fuerte.
-
-    // Sobrescribir la causa según la prioridad
     if (isSmokeAlert && isTempAlert) {
         cause = "ALERTA HUMO Y TEMP";
     } else if (isSmokeAlert) {
@@ -67,7 +65,7 @@ const App = () => {
         cause = "ALERTA DE TEMPERATURA";
     }
 
-    return { isTempAlert, isSmokeAlert, isHumidityAlert, cause };
+    return { isTempAlert, isSmokeAlert, cause };
   };
 
 
@@ -100,19 +98,18 @@ const App = () => {
     return () => clearInterval(interval);
   }, []);
 
-
   // --- OBTENER ESTADO DE ALERTA ---
-  const { isTempAlert, isSmokeAlert, isHumidityAlert, cause } = getAlertStatus(lastData);
+  // Note: Eliminamos isHumidityAlert de aquí, ya que no es una alerta primaria.
+  const { isTempAlert, isSmokeAlert, cause } = getAlertStatus(lastData);
   
-  // Clases dinámicas para las métricas superiores
+  // Clases dinámicas para las métricas superiores (Solo depende de la alerta real)
   const getAlertClasses = (isAlert) => 
     isAlert 
       ? 'bg-red-600 text-white shadow-xl transform scale-105 transition duration-150'
       : 'bg-white text-gray-800';
   // --------------------------
 
-
-  // Función para generar la estructura de datos común para los 3 gráficos (sin cambios)
+  // ... (Funciones de gráfico sin cambios) ...
   const getChartData = (fieldKey, label, color) => {
     return {
         labels: historicalData ? historicalData.map(feed => new Date(feed.created_at).toLocaleTimeString('es-CL')) : [],
@@ -128,7 +125,6 @@ const App = () => {
     };
   };
 
-  // Definiciones de Gráficos (sin cambios)
   const baseChartOptions = (titleText) => ({ /* ... */ });
   
   const tempChartData = getChartData('field1', 'Temperatura (°C)', 'rgb(59, 130, 246)'); 
@@ -170,13 +166,13 @@ const App = () => {
                   <span className="font-bold text-lg">Temperatura: <span className="text-2xl">{lastData.field1} °C</span></span>
                 </div>
                 
-                {/* Humedad con alerta */}
-                <div className={`p-4 rounded-xl shadow-lg flex justify-between items-center text-left ${getAlertClasses(isHumidityAlert)}`}>
+                {/* Humedad (Informativa, solo visual) */}
+                <div className={`p-4 bg-white text-gray-800 rounded-xl shadow-lg flex justify-between items-center text-left`}>
                   <span className="font-bold text-lg">Humedad: <span className="text-2xl">{lastData.field2} %</span></span>
                 </div>
 
-                {/* Humo/Causa Detectada (Muestra la causa calculada) */}
-                <div className={`p-4 rounded-xl shadow-lg flex justify-between items-center text-left ${getAlertClasses(isSmokeAlert || isTempAlert || isHumidityAlert)}`}>
+                {/* Causa Detectada (Alerta principal) */}
+                <div className={`p-4 rounded-xl shadow-lg flex justify-between items-center text-left ${getAlertClasses(isSmokeAlert || isTempAlert)}`}>
                   <span className="font-bold text-lg">Alerta: <span className="text-2xl font-bold">{cause}</span></span>
                 </div>
             </div>
@@ -199,9 +195,8 @@ const App = () => {
                     **Diagnóstico y Estado:**
                     <br/>**Última actualización:** {lastData.created_at}
                     <br/>**ID de entrada:** {lastData.entry_id}
-                    <br/>**Estado de Humedad Crítica:** {isHumidityAlert ? '⚠️ SÍ (Requiere atención)' : 'NORMAL'}
-                    <br/>**Estado de Temperatura Crítica:** {isTempAlert ? '⚠️ SÍ (Mayor a 40°C)' : 'NORMAL'}
-                    <br/>**Alerta de Humo:** {isSmokeAlert ? '⚠️ SÍ' : 'NORMAL'}
+                    <br/>**Estado de Humedad (Informativo):** {lastData.field2} %
+                    <br/>**Temperatura Crítica:** Mayor a {TEMP_CRITICA}°C dispara alerta.
                 </p>
             </div>
 
