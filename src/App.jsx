@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 
 const API_URL =
-  "https://api.thingspeak.com/channels/34H7NF47C4KU80T1/feeds/last.json";
+  "https://api.thingspeak.com/channels/2998313/feeds/last.json";
 
 const LAT = -33.4489;
 const LON = -70.6693;
