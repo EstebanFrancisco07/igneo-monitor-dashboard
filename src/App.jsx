@@ -1,4 +1,5 @@
-import { useEffect, useState, lazy, Suspense } from "react"; 
+import { useEffect, useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import { Icon } from 'leaflet'; 
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
@@ -14,17 +15,6 @@ ChartJS.register(
   Legend
 );
 
-// --- CARGA DINÁMICA DEL MAPA (FIX para Vercel) ---
-const LazyMap = lazy(() => 
-    import('react-leaflet').then(module => ({ 
-        default: module.MapContainer,
-        TileLayer: module.TileLayer,
-        Marker: module.Marker,
-        Popup: module.Popup
-    }))
-);
-// -----------------------------------------------------------
-
 // URLs de ThingSpeak
 const HISTORICAL_API_URL =
   "https://api.thingspeak.com/channels/2998313/feeds.json?results=20"; 
@@ -37,9 +27,11 @@ const THINGSPEAK_CHANNEL_URL = "https://thingspeak.mathworks.com/channels/299831
 // Coordenadas del sensor
 const LAT = -33.4489;
 const LON = -70.6693;
+
+// Umbral de temperatura crítica
 const TEMP_CRITICA = 60; 
 
-// Icono (Requiere 'red-arrow.png' en public/)
+// Icono
 const redArrowIcon = new Icon({
   iconUrl: '/red-arrow.png', 
   iconSize: [38, 38],        
@@ -52,7 +44,6 @@ const App = () => {
   const [historicalData, setHistoricalData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isBrowser, setIsBrowser] = useState(false); // <-- FIX para la inicialización
 
   // --- LÓGICA DE ALERTA ---
   const getAlertStatus = (data) => {
@@ -104,9 +95,6 @@ const App = () => {
   };
 
   useEffect(() => {
-    // 1. Marca que estamos en el navegador para permitir la carga del mapa
-    setIsBrowser(true); 
-    // 2. Inicia la obtención de datos
     fetchData(); 
     const interval = setInterval(fetchData, 5000); 
     return () => clearInterval(interval);
@@ -197,6 +185,19 @@ const App = () => {
             ))}
           </tbody>
         </table>
+        
+        {/* ENLACE PARA REGISTROS DE LARGO PLAZO */}
+        <div className="mt-3 text-center">
+            <a 
+                href={THINGSPEAK_CHANNEL_URL} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:text-blue-800 font-semibold underline"
+            >
+                Ver Historial Completo en ThingSpeak
+            </a>
+        </div>
+        
       </div>
     );
   };
@@ -257,30 +258,18 @@ const App = () => {
                 <HistoryTable />
             </div>
 
-            {/* MAPA (USANDO CARGA DINÁMICA y Browser Check) */}
+            {/* MAPA */}
             <div className="h-40 rounded-xl overflow-hidden shadow-lg">
-                {isBrowser ? (
-                    <Suspense fallback={
-                        <div className="h-full rounded-xl bg-gray-300 flex items-center justify-center">
-                            Cargando Mapa...
-                        </div>
-                    }>
-                        <LazyMap
-                          center={[LAT, LON]}
-                          zoom={13}
-                          style={{ height: "100%", width: "100%" }}
-                        >
-                          <LazyMap.TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                          <LazyMap.Marker position={[LAT, LON]} icon={redArrowIcon}> 
-                            <LazyMap.Popup>Ubicación del sensor Ígneo</LazyMap.Popup>
-                          </LazyMap.Marker>
-                        </LazyMap>
-                    </Suspense>
-                ) : (
-                    <div className="h-full rounded-xl bg-gray-300 flex items-center justify-center">
-                        Inicializando Mapa...
-                    </div>
-                )}
+                <MapContainer
+                  center={[LAT, LON]}
+                  zoom={13}
+                  style={{ height: "100%", width: "100%" }}
+                >
+                  <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <Marker position={[LAT, LON]} icon={redArrowIcon}> 
+                    <Popup>Ubicación del sensor Ígneo</Popup>
+                  </Marker>
+                </MapContainer>
             </div>
           </div>
         </div>
