@@ -27,7 +27,7 @@ const LON = -70.6693;
 
 const App = () => {
   const [lastData, setLastData] = useState(null);
-  const [historicalData, setHistoricalData] = useState(null);
+  const [historicalData, setHistoricalData = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -71,7 +71,7 @@ const App = () => {
                 label: label,
                 data: historicalData ? historicalData.map(feed => parseFloat(feed[fieldKey])) : [],
                 borderColor: color, 
-                backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.5)'), // Crea un color transparente
+                backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.5)'),
                 tension: 0.1,
             },
         ],
@@ -82,7 +82,8 @@ const App = () => {
   const tempChartData = getChartData('field1', 'Temperatura (°C)', 'rgb(239, 68, 68)');
   const tempChartOptions = {
     responsive: true,
-    plugins: { title: { display: true, text: 'Histórico de Temperatura (Últimas 20 Entradas)' } },
+    maintainAspectRatio: false, // Permitir que el gráfico llene el contenedor
+    plugins: { title: { display: true, text: 'Histórico de Temperatura' } },
     scales: { y: { beginAtZero: true } }
   };
 
@@ -90,7 +91,8 @@ const App = () => {
   const humidityChartData = getChartData('field2', 'Humedad (%)', 'rgb(59, 130, 246)');
   const humidityChartOptions = {
     responsive: true,
-    plugins: { title: { display: true, text: 'Histórico de Humedad (Últimas 20 Entradas)' } },
+    maintainAspectRatio: false,
+    plugins: { title: { display: true, text: 'Histórico de Humedad' } },
     scales: { y: { beginAtZero: true } }
   };
   
@@ -98,15 +100,17 @@ const App = () => {
   const smokeChartData = getChartData('field3', 'Humo', 'rgb(249, 115, 22)');
   const smokeChartOptions = {
     responsive: true,
-    plugins: { title: { display: true, text: 'Histórico de Humo (Últimas 20 Entradas)' } },
-    scales: { y: { beginAtZero: true, max: 1024 } } // Asumiendo que el sensor MQ-2 tiene un max de 1024
+    maintainAspectRatio: false,
+    plugins: { title: { display: true, text: 'Histórico de Humo' } },
+    scales: { y: { beginAtZero: true, max: 1024 } }
   };
 
 
   return (
-    <div className="min-h-screen p-4 flex flex-col items-center bg-gray-100"> 
+    // Contenedor principal con padding lateral y ancho máximo ajustado
+    <div className="min-h-screen p-6 flex flex-col items-center bg-gray-100"> 
       
-      {/* HEADER CON LOGO Y TÍTULO */}
+      {/* HEADER (Centrado y en el tope) */}
       <header className="flex items-center gap-4 mb-6">
         <img src="/logo.png" className="h-16 w-auto" alt="Ígneo Logo" /> 
         <h1 className="text-5xl font-extrabold text-red-600 drop-shadow">
@@ -119,83 +123,87 @@ const App = () => {
       ) : error ? (
         <p className="text-red-600 font-bold">{error}</p>
       ) : (
-        <>
-          {/* TARJETAS */}
-          <div className="grid grid-cols-2 gap-4 mb-6 w-full max-w-lg"> 
-            <div className="p-4 bg-white rounded-xl shadow-lg text-center">
-              <p className="font-bold text-gray-700">Temperatura (°C)</p>
-              <p className="text-4xl text-red-500 font-bold">
-                {lastData.field1}
+        // CONTENEDOR PRINCIPAL DE DATOS: 100% de ancho del viewport (p-10)
+        // Usamos un div principal para los gráficos y el mapa
+        <div className="w-full grid lg:grid-cols-3 xl:grid-cols-4 gap-4"> 
+          
+          {/* COLUMNA 1: TARJETAS Y DATOS EXTRA (COLSPAN 1) */}
+          <div className="flex flex-col space-y-4">
+            
+            {/* Tarjetas */}
+            <div className="grid grid-cols-2 gap-4"> 
+              <div className="p-4 bg-white rounded-xl shadow-lg text-center">
+                <p className="font-bold text-gray-700">Temperatura (°C)</p>
+                <p className="text-4xl text-red-500 font-bold">
+                  {lastData.field1}
+                </p>
+              </div>
+
+              <div className="p-4 bg-white rounded-xl shadow-lg text-center">
+                <p className="font-bold text-gray-700">Humedad (%)</p>
+                <p className="text-4xl text-blue-500 font-bold">
+                  {lastData.field2}
+                </p>
+              </div>
+
+              <div className="p-4 bg-white rounded-xl shadow-lg text-center">
+                <p className="font-bold text-gray-700">Humo</p>
+                <p className="text-4xl text-orange-500 font-bold">
+                  {lastData.field3}
+                </p>
+              </div>
+
+              <div className="p-4 bg-white rounded-xl shadow-lg text-center">
+                <p className="font-bold text-gray-700">Causa Detectada</p>
+                <p className="text-2xl text-purple-600 font-bold">
+                  {lastData.field4}
+                </p>
+              </div>
+            </div>
+            
+            {/* Info Extra (Separado de las tarjetas) */}
+            <div className="p-4 bg-white rounded-xl shadow-lg">
+              <p><strong>Última actualización:</strong> {lastData.created_at}</p>
+              <p><strong>ID de entrada:</strong> {lastData.entry_id}</p>
+              <p className="text-gray-500 text-sm mt-2">
+                Actualización automática cada <strong>5 segundos</strong>
               </p>
             </div>
 
-            <div className="p-4 bg-white rounded-xl shadow-lg text-center">
-              <p className="font-bold text-gray-700">Humedad (%)</p>
-              <p className="text-4xl text-blue-500 font-bold">
-                {lastData.field2}
-              </p>
-            </div>
-
-            <div className="p-4 bg-white rounded-xl shadow-lg text-center">
-              <p className="font-bold text-gray-700">Humo</p>
-              <p className="text-4xl text-orange-500 font-bold">
-                {lastData.field3}
-              </p>
-            </div>
-
-            <div className="p-4 bg-white rounded-xl shadow-lg text-center">
-              <p className="font-bold text-gray-700">Causa Detectada</p>
-              <p className="text-2xl text-purple-600 font-bold">
-                {lastData.field4}
-              </p>
+            {/* Mapa (Ahora debajo de las tarjetas, usando el espacio libre) */}
+            <div className="w-full h-80 rounded-xl overflow-hidden shadow-lg">
+                <MapContainer
+                  center={[LAT, LON]}
+                  zoom={13}
+                  style={{ height: "100%", width: "100%" }}
+                >
+                  <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <Marker position={[LAT, LON]}>
+                    <Popup>Ubicación del sensor Ígneo</Popup>
+                  </Marker>
+                </MapContainer>
             </div>
           </div>
           
-          {/* GRÁFICOS */}
-          {historicalData && (
-            <div className="w-full max-w-lg space-y-6">
-                 {/* GRÁFICO 1: TEMPERATURA */}
-                <div className="p-4 bg-white rounded-xl shadow-lg">
-                    <Line options={tempChartOptions} data={tempChartData} />
-                </div>
-
-                {/* GRÁFICO 2: HUMEDAD */}
-                <div className="p-4 bg-white rounded-xl shadow-lg">
-                    <Line options={humidityChartOptions} data={humidityChartData} />
-                </div>
-
-                {/* GRÁFICO 3: HUMO */}
-                <div className="p-4 bg-white rounded-xl shadow-lg">
-                    <Line options={smokeChartOptions} data={smokeChartData} />
-                </div>
+          {/* COLUMNA 2-4: GRÁFICOS (COLSPAN 2 ó 3 en pantallas grandes) */}
+          <div className="lg:col-span-2 xl:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4 auto-rows-fr">
+            
+            {/* GRÁFICO 1: TEMPERATURA */}
+            <div className="p-4 bg-white rounded-xl shadow-lg h-full min-h-60">
+                <Line options={tempChartOptions} data={tempChartData} />
             </div>
-          )}
 
+            {/* GRÁFICO 2: HUMEDAD */}
+            <div className="p-4 bg-white rounded-xl shadow-lg h-full min-h-60">
+                <Line options={humidityChartOptions} data={humidityChartData} />
+            </div>
 
-          {/* INFO EXTRA */}
-          <div className="w-full max-w-lg p-4 bg-white rounded-xl shadow-lg mt-6 mb-6">
-            <p><strong>Última actualización:</strong> {lastData.created_at}</p>
-            <p><strong>ID de entrada:</strong> {lastData.entry_id}</p>
+            {/* GRÁFICO 3: HUMO */}
+            <div className="p-4 bg-white rounded-xl shadow-lg h-full min-h-60">
+                <Line options={smokeChartOptions} data={smokeChartData} />
+            </div>
           </div>
-
-          {/* MAPA */}
-          <div className="w-full max-w-lg h-64 mb-6 rounded-xl overflow-hidden shadow-lg">
-            <MapContainer
-              center={[LAT, LON]}
-              zoom={13}
-              style={{ height: "100%", width: "100%" }}
-            >
-              <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <Marker position={[LAT, LON]}>
-                <Popup>Ubicación del sensor Ígneo</Popup>
-              </Marker>
-            </MapContainer>
-          </div>
-
-          <p className="text-gray-500 text-sm">
-            Actualización automática cada <strong>5 segundos</strong>
-          </p>
-        </>
+        </div>
       )}
     </div>
   );
