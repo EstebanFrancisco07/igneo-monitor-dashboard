@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react"; // Importar useRef
+import { useEffect, useState } from "react"; 
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import { Icon } from 'leaflet'; 
 import { Line } from 'react-chartjs-2';
@@ -24,7 +24,7 @@ const LAST_API_URL =
 const LAT = -33.4489;
 const LON = -70.6693;
 
-// --- DEFINICIÓN DE UMBRALES DE ALERTA ---
+// --- UMBRALES DE ALERTA ---
 const TEMP_CRITICA = 40;
 const HUMEDAD_MAX = 80;
 const HUMEDAD_MIN = 20;
@@ -43,36 +43,34 @@ const App = () => {
   const [historicalData, setHistoricalData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const audioRef = useRef(null); // Referencia para el audio
 
-  // Función para determinar el estado de alerta
-  const checkAlertStatus = (data) => {
-    if (!data) return { isAlert: false, cause: 'NORMAL' };
+  // Función para determinar el estado de alerta y la causa a mostrar
+  const getAlertStatus = (data) => {
+    if (!data) return { isTempAlert: false, isSmokeAlert: false, cause: 'NORMAL' };
 
     const tempValue = parseFloat(data.field1);
-    const smokeStatus = data.field4; // 'NORMAL' o cualquier otra cosa
+    const smokeStatus = data.field4; 
+    const humidityValue = parseFloat(data.field2);
 
     const isTempAlert = tempValue > TEMP_CRITICA;
     const isSmokeAlert = smokeStatus !== 'NORMAL';
-    
-    let cause = 'NORMAL';
-    let isAlert = false;
+    const isHumidityAlert = humidityValue < HUMEDAD_MIN || humidityValue > HUMEDAD_MAX;
 
+    let cause = data.field4; // Usa el valor original de ThingSpeak si no hay alerta fuerte.
+
+    // Sobrescribir la causa según la prioridad
     if (isSmokeAlert && isTempAlert) {
-        cause = "ALERTA DE HUMO Y TEMPERATURA";
-        isAlert = true;
+        cause = "ALERTA HUMO Y TEMP";
     } else if (isSmokeAlert) {
         cause = "ALERTA DE HUMO";
-        isAlert = true;
     } else if (isTempAlert) {
         cause = "ALERTA DE TEMPERATURA";
-        isAlert = true;
     }
 
-    return { isAlert, cause };
+    return { isTempAlert, isSmokeAlert, isHumidityAlert, cause };
   };
 
-  // Función de Fetch
+
   const fetchData = async () => {
     try {
       const lastRes = await fetch(LAST_API_URL);
@@ -84,7 +82,6 @@ const App = () => {
       }
       setLastData(lastJson);
 
-      // Obtener Datos Históricos (requerido para gráficos)
       const historyRes = await fetch(HISTORICAL_API_URL);
       if (!historyRes.ok) throw new Error("Error de red al obtener datos históricos.");
       const historyJson = await historyRes.json();
@@ -97,42 +94,25 @@ const App = () => {
     setLoading(false);
   };
 
-  // --- EFECTO: ALERTA AUDITIVA Y FETCH DE DATOS ---
   useEffect(() => {
-    fetchData(); // Primer fetch
+    fetchData(); 
     const interval = setInterval(fetchData, 5000); 
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (!lastData) return;
-    
-    const { isAlert } = checkAlertStatus(lastData);
-    
-    // Reproducir sonido solo si hay alerta y el audio está cargado
-    if (isAlert) {
-        if (audioRef.current) {
-            audioRef.current.loop = true; // Bucle
-            audioRef.current.play().catch(e => console.error("Error al reproducir audio:", e));
-        }
-    } else {
-        // Pausar y reiniciar si la alerta se detiene
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-        }
-    }
-  }, [lastData]);
 
-
-  // --- CLASES Y DATOS DE GRÁFICO (sin cambios en la estructura) ---
-  const { isAlert, cause } = checkAlertStatus(lastData);
+  // --- OBTENER ESTADO DE ALERTA ---
+  const { isTempAlert, isSmokeAlert, isHumidityAlert, cause } = getAlertStatus(lastData);
   
+  // Clases dinámicas para las métricas superiores
   const getAlertClasses = (isAlert) => 
     isAlert 
       ? 'bg-red-600 text-white shadow-xl transform scale-105 transition duration-150'
       : 'bg-white text-gray-800';
+  // --------------------------
 
+
+  // Función para generar la estructura de datos común para los 3 gráficos (sin cambios)
   const getChartData = (fieldKey, label, color) => {
     return {
         labels: historicalData ? historicalData.map(feed => new Date(feed.created_at).toLocaleTimeString('es-CL')) : [],
@@ -148,21 +128,24 @@ const App = () => {
     };
   };
 
-  // Definiciones de Gráficos (igual que antes)
+  // Definiciones de Gráficos (sin cambios)
   const baseChartOptions = (titleText) => ({ /* ... */ });
+  
   const tempChartData = getChartData('field1', 'Temperatura (°C)', 'rgb(59, 130, 246)'); 
-  const tempChartOptions = { ...baseChartOptions('Temperatura (°C)'), scales: { y: { beginAtZero: true, max: 100 } } };
+  const tempChartOptions = baseChartOptions('Temperatura (°C)');
+  tempChartOptions.scales = { y: { beginAtZero: true, max: 100 } };
+  
   const humidityChartData = getChartData('field2', 'Humedad (%)', 'rgb(34, 197, 94)'); 
-  const humidityChartOptions = { ...baseChartOptions('Humedad (%)'), scales: { y: { beginAtZero: true, max: 100 } } };
+  const humidityChartOptions = baseChartOptions('Humedad (%)');
+  humidityChartOptions.scales = { y: { beginAtZero: true, max: 100 } };
+  
   const smokeChartData = getChartData('field3', 'Nivel de Humo', 'rgb(249, 115, 22)'); 
-  const smokeChartOptions = { ...baseChartOptions('Nivel de Humo'), scales: { y: { beginAtZero: true, max: 2500 } } };
+  const smokeChartOptions = baseChartOptions('Nivel de Humo');
+  smokeChartOptions.scales = { y: { beginAtZero: true, max: 2500 } };
 
 
   return (
     <div className="min-h-screen p-4 flex flex-col items-center bg-gray-100"> 
-        {/* COMPONENTE DE AUDIO: Requiere un archivo 'alarm.mp3' o 'alarm.wav' en public/ */}
-        <audio ref={audioRef} src="/alarm.mp3" preload="auto"></audio> 
-
       
       {loading ? (
         <p className="text-lg">Cargando datos...</p>
@@ -193,13 +176,13 @@ const App = () => {
                 </div>
 
                 {/* Humo/Causa Detectada (Muestra la causa calculada) */}
-                <div className={`p-4 rounded-xl shadow-lg flex justify-between items-center text-left ${getAlertClasses(isSmokeAlert || isTempAlert)}`}>
+                <div className={`p-4 rounded-xl shadow-lg flex justify-between items-center text-left ${getAlertClasses(isSmokeAlert || isTempAlert || isHumidityAlert)}`}>
                   <span className="font-bold text-lg">Alerta: <span className="text-2xl font-bold">{cause}</span></span>
                 </div>
             </div>
           </div>
           
-          {/* Fila 2: GRÁFICOS */}
+          {/* Fila 2: GRÁFICOS (3 columnas full-width) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
             
             <div className="p-4 bg-white rounded-xl shadow-lg h-96"> <Line options={tempChartOptions} data={tempChartData} /> </div>
@@ -213,11 +196,12 @@ const App = () => {
             {/* INFO EXTRA */}
             <div className="p-4 bg-white rounded-xl shadow-lg">
                 <p className="text-sm">
-                    **Datos del sensor:**
-                    <br/>Última actualización: {lastData.created_at}
-                    <br/>ID de entrada: {lastData.entry_id}
-                    <br/>Alerta de Humedad: La humedad extrema (menor a {HUMEDAD_MIN}% o mayor a {HUMEDAD_MAX}%) dispara una alerta visual.
-                    <br/>Temperatura Crítica: Mayor a {TEMP_CRITICA}°C.
+                    **Diagnóstico y Estado:**
+                    <br/>**Última actualización:** {lastData.created_at}
+                    <br/>**ID de entrada:** {lastData.entry_id}
+                    <br/>**Estado de Humedad Crítica:** {isHumidityAlert ? '⚠️ SÍ (Requiere atención)' : 'NORMAL'}
+                    <br/>**Estado de Temperatura Crítica:** {isTempAlert ? '⚠️ SÍ (Mayor a 40°C)' : 'NORMAL'}
+                    <br/>**Alerta de Humo:** {isSmokeAlert ? '⚠️ SÍ' : 'NORMAL'}
                 </p>
             </div>
 
