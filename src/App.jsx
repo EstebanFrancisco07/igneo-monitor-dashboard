@@ -62,36 +62,44 @@ const App = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Preparar datos para la gráfica de Temperatura
-  const chartData = {
-    labels: historicalData ? historicalData.map(feed => new Date(feed.created_at).toLocaleTimeString('es-CL')) : [],
-    datasets: [
-      {
-        label: 'Temperatura (°C)',
-        data: historicalData ? historicalData.map(feed => parseFloat(feed.field1)) : [],
-        borderColor: 'rgb(239, 68, 68)', // Rojo de Tailwind (red-500)
-        backgroundColor: 'rgba(239, 68, 68, 0.5)',
-        tension: 0.1,
-      },
-    ],
+  // Función para generar la estructura de datos común para los 3 gráficos
+  const getChartData = (fieldKey, label, color) => {
+    return {
+        labels: historicalData ? historicalData.map(feed => new Date(feed.created_at).toLocaleTimeString('es-CL')) : [],
+        datasets: [
+            {
+                label: label,
+                data: historicalData ? historicalData.map(feed => parseFloat(feed[fieldKey])) : [],
+                borderColor: color, 
+                backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.5)'), // Crea un color transparente
+                tension: 0.1,
+            },
+        ],
+    };
   };
 
-  const chartOptions = {
+  // 1. Datos para Temperatura (Field 1)
+  const tempChartData = getChartData('field1', 'Temperatura (°C)', 'rgb(239, 68, 68)');
+  const tempChartOptions = {
     responsive: true,
-    plugins: {
-      legend: {
-        position: 'top',
-      },
-      title: {
-        display: true,
-        text: 'Histórico de Temperatura (Últimas 20 Entradas)',
-      },
-    },
-    scales: {
-        y: {
-            beginAtZero: true
-        }
-    }
+    plugins: { title: { display: true, text: 'Histórico de Temperatura (Últimas 20 Entradas)' } },
+    scales: { y: { beginAtZero: true } }
+  };
+
+  // 2. Datos para Humedad (Field 2)
+  const humidityChartData = getChartData('field2', 'Humedad (%)', 'rgb(59, 130, 246)');
+  const humidityChartOptions = {
+    responsive: true,
+    plugins: { title: { display: true, text: 'Histórico de Humedad (Últimas 20 Entradas)' } },
+    scales: { y: { beginAtZero: true } }
+  };
+  
+  // 3. Datos para Humo (Field 3)
+  const smokeChartData = getChartData('field3', 'Humo', 'rgb(249, 115, 22)');
+  const smokeChartOptions = {
+    responsive: true,
+    plugins: { title: { display: true, text: 'Histórico de Humo (Últimas 20 Entradas)' } },
+    scales: { y: { beginAtZero: true, max: 1024 } } // Asumiendo que el sensor MQ-2 tiene un max de 1024
   };
 
 
@@ -143,16 +151,29 @@ const App = () => {
             </div>
           </div>
           
-          {/* GRÁFICO DE TEMPERATURA */}
+          {/* GRÁFICOS */}
           {historicalData && (
-             <div className="w-full max-w-lg p-4 bg-white rounded-xl shadow-lg mb-6">
-                <Line options={chartOptions} data={chartData} />
-             </div>
+            <div className="w-full max-w-lg space-y-6">
+                 {/* GRÁFICO 1: TEMPERATURA */}
+                <div className="p-4 bg-white rounded-xl shadow-lg">
+                    <Line options={tempChartOptions} data={tempChartData} />
+                </div>
+
+                {/* GRÁFICO 2: HUMEDAD */}
+                <div className="p-4 bg-white rounded-xl shadow-lg">
+                    <Line options={humidityChartOptions} data={humidityChartData} />
+                </div>
+
+                {/* GRÁFICO 3: HUMO */}
+                <div className="p-4 bg-white rounded-xl shadow-lg">
+                    <Line options={smokeChartOptions} data={smokeChartData} />
+                </div>
+            </div>
           )}
 
 
           {/* INFO EXTRA */}
-          <div className="w-full max-w-lg p-4 bg-white rounded-xl shadow-lg mb-6">
+          <div className="w-full max-w-lg p-4 bg-white rounded-xl shadow-lg mt-6 mb-6">
             <p><strong>Última actualización:</strong> {lastData.created_at}</p>
             <p><strong>ID de entrada:</strong> {lastData.entry_id}</p>
           </div>
