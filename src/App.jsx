@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { useEffect, useState, lazy, Suspense } from "react"; // <-- Importaciones de React.lazy y Suspense
 import { Icon } from 'leaflet'; 
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
@@ -15,13 +14,26 @@ ChartJS.register(
   Legend
 );
 
+// -----------------------------------------------------------
+// SOLUCIÓN AL ERROR: Carga Dinámica del Componente del Mapa
+// -----------------------------------------------------------
+const LazyMap = lazy(() => 
+    import('react-leaflet').then(module => ({ 
+        default: module.MapContainer,
+        TileLayer: module.TileLayer,
+        Marker: module.Marker,
+        Popup: module.Popup
+    }))
+);
+// -----------------------------------------------------------
+
 // URLs de ThingSpeak
 const HISTORICAL_API_URL =
   "https://api.thingspeak.com/channels/2998313/feeds.json?results=20"; 
 const LAST_API_URL =
   "https://api.thingspeak.com/channels/2998313/feeds/last.json";
 
-// URL del Canal Completo (Para el botón de histórico)
+// URL del Canal Completo
 const THINGSPEAK_CHANNEL_URL = "https://thingspeak.mathworks.com/channels/2998313";
 
 // Coordenadas del sensor
@@ -84,7 +96,7 @@ const App = () => {
 
       const historyRes = await fetch(HISTORICAL_API_URL);
       if (!historyRes.ok) throw new Error("Error de red al obtener datos históricos.");
-      const historyJson = await historyJson.json();
+      const historyJson = await historyRes.json();
       setHistoricalData(historyJson.feeds);
 
       setError(null);
@@ -107,7 +119,7 @@ const App = () => {
       ? 'bg-red-600 text-white shadow-xl transform scale-105 transition duration-150'
       : 'bg-white text-gray-800';
   
-  // --- FUNCIONES DE GRÁFICOS (COMPLETAS) ---
+  // --- FUNCIONES DE GRÁFICOS ---
   const getChartData = (fieldKey, label, color) => {
     return {
         labels: historicalData ? historicalData.map(feed => new Date(feed.created_at).toLocaleTimeString('es-CL')) : [],
@@ -131,7 +143,7 @@ const App = () => {
           legend: { display: false } 
       },
   });
-  // ------------------------------------------
+  // ------------------------------
 
   // Definiciones de Gráficos (Escalas fijas)
   const tempChartData = getChartData('field1', 'Temperatura (°C)', 'rgb(59, 130, 246)'); 
@@ -164,7 +176,7 @@ const App = () => {
         <table className="min-w-full bg-white text-xs border-collapse">
           <thead>
             <tr className="bg-gray-200 text-gray-600 uppercase text-left">
-              <th className="py-1 px-2 border-b">FECHA</th> {/* <-- COLUMNA FECHA */}
+              <th className="py-1 px-2 border-b">FECHA</th>
               <th className="py-1 px-2 border-b">HORA</th>
               <th className="py-1 px-2 border-b">T (°C)</th>
               <th className="py-1 px-2 border-b">H (%)</th>
@@ -175,9 +187,7 @@ const App = () => {
           <tbody>
             {recentAlerts.map((entry, index) => (
               <tr key={index} className="border-b hover:bg-red-50"> 
-                {/* MOSTRAR FECHA */}
                 <td className="py-1 px-2">{new Date(entry.created_at).toLocaleDateString('es-CL')}</td> 
-                {/* MOSTRAR HORA */}
                 <td className="py-1 px-2">{new Date(entry.created_at).toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'})}</td>
                 <td className="py-1 px-2">{entry.field1}</td>
                 <td className="py-1 px-2">{entry.field2}</td>
@@ -187,8 +197,8 @@ const App = () => {
             ))}
           </tbody>
         </table>
-        
-        {/* ENLACE PARA REGISTROS DE LARGO PLAZO (DE VUELTA A SOLICITUD ORIGINAL) */}
+
+        {/* ENLACE PARA REGISTROS DE LARGO PLAZO */}
         <div className="mt-3 text-center">
             <a 
                 href={THINGSPEAK_CHANNEL_URL} 
@@ -260,19 +270,25 @@ const App = () => {
                 <HistoryTable />
             </div>
 
-            {/* MAPA */}
-            <div className="h-40 rounded-xl overflow-hidden shadow-lg">
-                <MapContainer
-                  center={[LAT, LON]}
-                  zoom={13}
-                  style={{ height: "100%", width: "100%" }}
-                >
-                  <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <Marker position={[LAT, LON]} icon={redArrowIcon}> 
-                    <Popup>Ubicación del sensor Ígneo</Popup>
-                  </Marker>
-                </MapContainer>
-            </div>
+            {/* MAPA (USANDO CARGA DINÁMICA) */}
+            <Suspense fallback={
+                <div className="h-40 rounded-xl bg-gray-300 flex items-center justify-center shadow-lg">
+                    Cargando Mapa...
+                </div>
+            }>
+                <div className="h-40 rounded-xl overflow-hidden shadow-lg">
+                    <LazyMap
+                      center={[LAT, LON]}
+                      zoom={13}
+                      style={{ height: "100%", width: "100%" }}
+                    >
+                      <LazyMap.TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                      <LazyMap.Marker position={[LAT, LON]} icon={redArrowIcon}> 
+                        <LazyMap.Popup>Ubicación del sensor Ígneo</LazyMap.Popup>
+                      </LazyMap.Marker>
+                    </LazyMap>
+                </div>
+            </Suspense>
           </div>
         </div>
       )}
