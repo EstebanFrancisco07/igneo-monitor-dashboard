@@ -84,7 +84,7 @@ const App = () => {
 
       const historyRes = await fetch(HISTORICAL_API_URL);
       if (!historyRes.ok) throw new Error("Error de red al obtener datos históricos.");
-      const historyJson = await historyRes.json();
+      const historyJson = await historyJson.json();
       setHistoricalData(historyJson.feeds);
 
       setError(null);
@@ -146,7 +146,7 @@ const App = () => {
   const smokeChartOptions = baseChartOptions('Nivel de Humo');
   smokeChartOptions.scales = { y: { beginAtZero: true, max: 2500 } };
   
-  // --- COMPONENTE DE TABLA DE REGISTROS (FILTRADA) ---
+  // --- COMPONENTE DE TABLA DE REGISTROS (FILTRADA Y CON FECHA) ---
   const HistoryTable = () => {
     if (!historicalData || historicalData.length === 0) return <p className="text-sm text-gray-500">No hay registros históricos recientes.</p>;
 
@@ -164,7 +164,8 @@ const App = () => {
         <table className="min-w-full bg-white text-xs border-collapse">
           <thead>
             <tr className="bg-gray-200 text-gray-600 uppercase text-left">
-              <th className="py-1 px-2 border-b">Hora</th>
+              <th className="py-1 px-2 border-b">FECHA</th> {/* <-- COLUMNA FECHA */}
+              <th className="py-1 px-2 border-b">HORA</th>
               <th className="py-1 px-2 border-b">T (°C)</th>
               <th className="py-1 px-2 border-b">H (%)</th>
               <th className="py-1 px-2 border-b">Humo</th>
@@ -173,7 +174,10 @@ const App = () => {
           </thead>
           <tbody>
             {recentAlerts.map((entry, index) => (
-              <tr key={index} className="border-b hover:bg-red-50"> {/* Fondo rojo claro para las filas de alerta */}
+              <tr key={index} className="border-b hover:bg-red-50"> 
+                {/* MOSTRAR FECHA */}
+                <td className="py-1 px-2">{new Date(entry.created_at).toLocaleDateString('es-CL')}</td> 
+                {/* MOSTRAR HORA */}
                 <td className="py-1 px-2">{new Date(entry.created_at).toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'})}</td>
                 <td className="py-1 px-2">{entry.field1}</td>
                 <td className="py-1 px-2">{entry.field2}</td>
@@ -183,8 +187,8 @@ const App = () => {
             ))}
           </tbody>
         </table>
-
-        {/* ENLACE PARA REGISTROS DE LARGO PLAZO */}
+        
+        {/* ENLACE PARA REGISTROS DE LARGO PLAZO (DE VUELTA A SOLICITUD ORIGINAL) */}
         <div className="mt-3 text-center">
             <a 
                 href={THINGSPEAK_CHANNEL_URL} 
@@ -195,6 +199,7 @@ const App = () => {
                 Ver Historial Completo en ThingSpeak
             </a>
         </div>
+        
       </div>
     );
   };
