@@ -147,12 +147,10 @@ const App = () => {
   const HistoryTable = () => {
     if (!historicalData || historicalData.length === 0) return <p className="text-sm text-gray-500">No hay registros históricos recientes.</p>;
 
-    // 1. FILTRAR: Solo entradas donde el ESTADO (field4) no sea 'NORMAL'
     const alertEntries = historicalData.filter(entry => entry.field4 !== 'NORMAL');
 
     if (alertEntries.length === 0) return <p className="text-sm text-gray-500">No se encontraron eventos de alerta en los últimos 20 registros.</p>;
 
-    // 2. Tomar las últimas 5 entradas de alerta y revertir el orden
     const recentAlerts = alertEntries.slice(-5).reverse(); 
 
     return (
@@ -207,21 +205,25 @@ const App = () => {
               </h1>
             </header>
 
-            {/* BARRA DE MÉTRICAS SUPERIOR (3 columnas) */}
-            <div className="w-full grid grid-cols-3 gap-4 max-w-4xl"> 
+            {/* BARRA DE MÉTRICAS SUPERIOR (CORRECCIÓN MOBILE) */}
+            <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-w-4xl"> 
+                
                 {/* Temp con alerta */}
-                <div className={`p-4 rounded-xl shadow-lg flex justify-between items-center text-left ${getAlertClasses(isTempAlert)}`}>
-                  <span className="font-bold text-lg">Temperatura: <span className="text-2xl">{lastData.field1} °C</span></span>
+                <div className={`p-4 rounded-xl shadow-lg flex flex-col justify-center items-start sm:items-center text-left sm:text-center ${getAlertClasses(isTempAlert)}`}>
+                  <span className="font-bold text-lg">Temperatura:</span> 
+                  <span className="text-3xl sm:text-2xl font-bold">{lastData.field1} °C</span>
                 </div>
                 
                 {/* Humedad (Informativa, sin alerta roja) */}
-                <div className={`p-4 bg-white text-gray-800 rounded-xl shadow-lg flex justify-between items-center text-left`}>
-                  <span className="font-bold text-lg">Humedad: <span className="text-2xl">{lastData.field2} %</span></span>
+                <div className={`p-4 bg-white text-gray-800 rounded-xl shadow-lg flex flex-col justify-center items-start sm:items-center text-left sm:text-center`}>
+                  <span className="font-bold text-lg">Humedad:</span> 
+                  <span className="text-3xl sm:text-2xl font-bold">{lastData.field2} %</span>
                 </div>
 
                 {/* Estado (Causa Detectada) - Se vuelve rojo con alerta de Temp o Humo */}
-                <div className={`p-4 rounded-xl shadow-lg flex justify-between items-center text-left ${getAlertClasses(isSmokeAlert || isTempAlert)}`}>
-                  <span className="font-bold text-lg">Estado: <span className="text-2xl font-bold">{cause}</span></span>
+                <div className={`p-4 rounded-xl shadow-lg flex flex-col justify-center items-start sm:items-center text-left sm:text-center ${getAlertClasses(isSmokeAlert || isTempAlert)}`}>
+                  <span className="font-bold text-lg">Estado:</span> 
+                  <span className="text-3xl sm:text-2xl font-bold">{cause}</span>
                 </div>
             </div>
           </div>
