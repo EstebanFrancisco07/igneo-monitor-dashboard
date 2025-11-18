@@ -42,6 +42,8 @@ const App = () => {
   const [historicalData, setHistoricalData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Estado para la fila expandible
+  const [expandedIndex, setExpandedIndex] = useState(null); 
 
   // --- LÓGICA DE ALERTA ---
   const getAlertStatus = (data) => {
@@ -171,6 +173,12 @@ const App = () => {
   
   // --- COMPONENTE DE TABLA DE REGISTROS (FILTRADA Y CONSOLIDADA) ---
   const HistoryTable = () => {
+    
+    // Función para manejar el clic en la fila (toggle)
+    const handleRowClick = (index) => {
+        setExpandedIndex(index === expandedIndex ? null : index);
+    };
+
     if (!historicalData || historicalData.length === 0) return <p className="text-sm text-gray-500">No hay registros históricos recientes.</p>;
 
     // 1. FILTRAR: Solo entradas donde el ESTADO (field4) no sea 'NORMAL'
@@ -189,14 +197,16 @@ const App = () => {
         // Clave del último evento consolidado
         const lastKey = lastConsolidated ? `${lastConsolidated.field1}-${lastConsolidated.field2}-${lastConsolidated.field3}-${lastConsolidated.field4}` : null;
         
-        // Si el evento actual es idéntico al último, incrementar el contador
+        // Si el evento actual es idéntico al último, incrementar el contador y guardar entrada
         if (lastKey === currentKey) {
             lastConsolidated.count += 1;
+            lastConsolidated.fullEntries.push(current);
         } else {
             // Si es un evento nuevo, inicializar el contador
             acc.push({
                 ...current,
                 count: 1,
+                fullEntries: [current]
             });
         }
         return acc;
@@ -218,20 +228,45 @@ const App = () => {
               <th className="py-1 px-2 border-b">H (%)</th>
               <th className="py-1 px-2 border-b">Humo</th>
               <th className="py-1 px-2 border-b">ESTADO</th>
-              <th className="py-1 px-2 border-b">CANT.</th> {/* <-- COLUMNA CANTIDAD */}
+              <th className="py-1 px-2 border-b">CANT.</th> 
             </tr>
           </thead>
           <tbody>
             {finalEntries.map((entry, index) => (
-              <tr key={index} className="border-b hover:bg-red-50"> 
-                <td className="py-1 px-2">{new Date(entry.created_at).toLocaleDateString('es-CL')}</td> 
-                <td className="py-1 px-2">{new Date(entry.created_at).toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'})}</td>
-                <td className="py-1 px-2">{entry.field1}</td>
-                <td className="py-1 px-2">{entry.field2}</td>
-                <td className="py-1 px-2">{entry.field3}</td>
-                <td className="py-1 px-2 font-semibold text-red-700">{entry.field4}</td>
-                <td className="py-1 px-2 font-bold">{entry.count}</td> {/* <-- MOSTRAR CANTIDAD */}
-              </tr>
+              <>
+                <tr 
+                    key={index} 
+                    className="border-b hover:bg-red-50 cursor-pointer"
+                    onClick={() => handleRowClick(index)} // <-- Evento de clic
+                > 
+                  <td className="py-1 px-2">{new Date(entry.created_at).toLocaleDateString('es-CL')}</td> 
+                  <td className="py-1 px-2">{new Date(entry.created_at).toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'})}</td>
+                  <td className="py-1 px-2">{entry.field1}</td>
+                  <td className="py-1 px-2">{entry.field2}</td>
+                  <td className="py-1 px-2">{entry.field3}</td>
+                  <td className="py-1 px-2 font-semibold text-red-700">{entry.field4}</td>
+                  <td className="py-1 px-2 font-bold text-center">{entry.count}</td> 
+                </tr>
+
+                {/* FILA DE DETALLES EXPANDIBLE */}
+                {expandedIndex === index && (
+                    <tr className="bg-gray-50">
+                        <td colSpan="7" className="p-0 border-b">
+                            <div className="p-3 text-xs">
+                                <p className="font-bold mb-1 text-red-600">Detalle de {entry.count} Registros de Alerta:</p>
+                                <ul className="list-disc ml-4 space-y-0.5">
+                                    {entry.fullEntries.map((detail, detailIndex) => (
+                                        <li key={detailIndex}>
+                                            <span className="font-semibold">{new Date(detail.created_at).toLocaleTimeString('es-CL')}:</span> 
+                                            &nbsp; T: {detail.field1}°C, H: {detail.field2}%, Humo: {detail.field3}, Estado: {detail.field4}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                )}
+              </>
             ))}
           </tbody>
         </table>
