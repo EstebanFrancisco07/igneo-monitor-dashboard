@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import { Icon } from 'leaflet'; 
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
-// La librería chartjs-plugin-annotation es necesaria y se asume que está instalada o disponible.
+// Asegúrate de que tienes instalado 'chartjs-plugin-annotation' (npm install chartjs-plugin-annotation) si no funciona la línea punteada.
 
 // Registro de componentes de Chart.js
 ChartJS.register(
@@ -25,6 +25,8 @@ const LAST_API_URL =
 // Coordenadas del sensor
 const LAT = -33.4489;
 const LON = -70.6693;
+// Dirección física de referencia para el popup del mapa
+const SENSOR_ADDRESS = "Av. Libertador Bernardo O'Higgins 3300, Santiago, Chile"; 
 
 // Umbral de temperatura crítica
 const TEMP_CRITICA = 60; 
@@ -174,12 +176,10 @@ const App = () => {
   const HistoryTable = () => {
     if (!historicalData || historicalData.length === 0) return <p className="text-sm text-gray-500">No hay registros históricos recientes.</p>;
 
-    // 1. FILTRAR: Solo entradas donde el ESTADO (field4) no sea 'NORMAL'
     const alertEntries = historicalData.filter(entry => entry.field4 !== 'NORMAL');
 
     if (alertEntries.length === 0) return <p className="text-sm text-gray-500">No se encontraron eventos de alerta en los últimos 20 registros.</p>;
 
-    // 2. Tomar las últimas 5 entradas de alerta y revertir el orden
     const recentAlerts = alertEntries.slice(-5).reverse(); 
 
     return (
@@ -272,7 +272,7 @@ const App = () => {
                 <HistoryTable />
             </div>
 
-            {/* MAPA */}
+            {/* MAPA con dirección actualizada */}
             <div className="h-40 rounded-xl overflow-hidden shadow-lg">
                 <MapContainer
                   center={[LAT, LON]}
@@ -281,7 +281,10 @@ const App = () => {
                 >
                   <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
                   <Marker position={[LAT, LON]} icon={redArrowIcon}> 
-                    <Popup>Ubicación del sensor Ígneo</Popup>
+                    <Popup>
+                        <strong className="block mb-1">Ubicación del sensor Ígneo</strong>
+                        {SENSOR_ADDRESS} {/* ¡DIRECCIÓN AGREGADA AQUÍ! */}
+                    </Popup>
                   </Marker>
                 </MapContainer>
             </div>
