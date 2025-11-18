@@ -4,7 +4,6 @@ import { Icon } from 'leaflet';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 
-// Registro de componentes de Chart.js
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -25,9 +24,10 @@ const LAST_API_URL =
 const LAT = -33.4489;
 const LON = -70.6693;
 
-// --- UMBRALES DE ALERTA ---
-const TEMP_CRITICA = 40; 
-// Los umbrales de humedad (20%-80%) se eliminan de la lógica de alerta primaria.
+// --- UMBRAL DE TEMPERATURA CRÍTICA (ACTUALIZADO A 60°C) ---
+const TEMP_CRITICA = 60; 
+const HUMEDAD_MAX = 80;
+const HUMEDAD_MIN = 20;
 
 // Icono (Requiere 'red-arrow.png' en public/)
 const redArrowIcon = new Icon({
@@ -44,28 +44,31 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Función para determinar el estado de alerta principal y la causa a mostrar
   const getAlertStatus = (data) => {
     if (!data) return { isTempAlert: false, isSmokeAlert: false, cause: 'NORMAL' };
 
     const tempValue = parseFloat(data.field1);
     const smokeStatus = data.field4; 
+    const humidityValue = parseFloat(data.field2);
 
-    // Solo verificamos Humo y Temperatura para las alertas principales
     const isTempAlert = tempValue > TEMP_CRITICA; 
     const isSmokeAlert = smokeStatus !== 'NORMAL'; 
-    
-    let cause = 'NORMAL';
+    const isHumidityAlert = humidityValue < HUMEDAD_MIN || humidityValue > HUMEDAD_MAX; // Métrica informativa
 
+    let cause = data.field4; // Valor por defecto de ThingSpeak
+
+    // Sobrescribir la causa principal
     if (isSmokeAlert && isTempAlert) {
         cause = "ALERTA HUMO Y TEMP";
     } else if (isSmokeAlert) {
         cause = "ALERTA DE HUMO";
     } else if (isTempAlert) {
         cause = "ALERTA DE TEMPERATURA";
+    } else {
+        cause = "NORMAL";
     }
 
-    return { isTempAlert, isSmokeAlert, cause };
+    return { isTempAlert, isSmokeAlert, isHumidityAlert, cause };
   };
 
 
@@ -98,18 +101,14 @@ const App = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // --- OBTENER ESTADO DE ALERTA ---
-  // Note: Eliminamos isHumidityAlert de aquí, ya que no es una alerta primaria.
-  const { isTempAlert, isSmokeAlert, cause } = getAlertStatus(lastData);
+  const { isTempAlert, isSmokeAlert, isHumidityAlert, cause } = getAlertStatus(lastData);
   
-  // Clases dinámicas para las métricas superiores (Solo depende de la alerta real)
   const getAlertClasses = (isAlert) => 
     isAlert 
       ? 'bg-red-600 text-white shadow-xl transform scale-105 transition duration-150'
       : 'bg-white text-gray-800';
-  // --------------------------
 
-  // ... (Funciones de gráfico sin cambios) ...
+  // ... Funciones de Gráficos (sin cambios en la lógica) ...
   const getChartData = (fieldKey, label, color) => {
     return {
         labels: historicalData ? historicalData.map(feed => new Date(feed.created_at).toLocaleTimeString('es-CL')) : [],
@@ -166,14 +165,14 @@ const App = () => {
                   <span className="font-bold text-lg">Temperatura: <span className="text-2xl">{lastData.field1} °C</span></span>
                 </div>
                 
-                {/* Humedad (Informativa, solo visual) */}
+                {/* Humedad (Informativa) */}
                 <div className={`p-4 bg-white text-gray-800 rounded-xl shadow-lg flex justify-between items-center text-left`}>
                   <span className="font-bold text-lg">Humedad: <span className="text-2xl">{lastData.field2} %</span></span>
                 </div>
 
-                {/* Causa Detectada (Alerta principal) */}
+                {/* Estado (Causa Detectada) - Texto cambiado de ALERTA a ESTADO */}
                 <div className={`p-4 rounded-xl shadow-lg flex justify-between items-center text-left ${getAlertClasses(isSmokeAlert || isTempAlert)}`}>
-                  <span className="font-bold text-lg">Alerta: <span className="text-2xl font-bold">{cause}</span></span>
+                  <span className="font-bold text-lg">Estado: <span className="text-2xl font-bold">{cause}</span></span>
                 </div>
             </div>
           </div>
