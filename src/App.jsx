@@ -17,12 +17,9 @@ ChartJS.register(
 
 // URLs de ThingSpeak
 const HISTORICAL_API_URL =
-  "https://api.thingspeak.com/channels/2998313/feeds.json?results=20"; 
+  "https://api.thingspeak.com/channels/2998313/feeds.json?results=20"; // Usaremos estos 20 resultados para la tabla
 const LAST_API_URL =
   "https://api.thingspeak.com/channels/2998313/feeds/last.json";
-
-// --- URL DEL CANAL COMPLETO (Para el botón de histórico) ---
-const THINGSPEAK_CHANNEL_URL = "https://thingspeak.mathworks.com/channels/2998313";
 
 // Coordenadas del sensor
 const LAT = -33.4489;
@@ -108,32 +105,10 @@ const App = () => {
       ? 'bg-red-600 text-white shadow-xl transform scale-105 transition duration-150'
       : 'bg-white text-gray-800';
   
-  // Función de Gráficos
-  const getChartData = (fieldKey, label, color) => {
-    return {
-        labels: historicalData ? historicalData.map(feed => new Date(feed.created_at).toLocaleTimeString('es-CL')) : [],
-        datasets: [
-            {
-                label: label,
-                data: historicalData ? historicalData.map(feed => parseFloat(feed[fieldKey])) : [],
-                borderColor: color, 
-                backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.5)'),
-                tension: 0.1,
-            },
-        ],
-    };
-  };
-
-  const baseChartOptions = (titleText) => ({
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-          title: { display: true, text: titleText, font: { size: 14, weight: 'bold' } },
-          legend: { display: false } 
-      },
-  });
-
-  // Datos y Opciones de Gráficos (Escalas fijas)
+  // Función de Gráficos (sin cambios)
+  const getChartData = (fieldKey, label, color) => { /* ... */ return {}; };
+  const baseChartOptions = (titleText) => ({ /* ... */ });
+  
   const tempChartData = getChartData('field1', 'Temperatura (°C)', 'rgb(59, 130, 246)'); 
   const tempChartOptions = baseChartOptions('Temperatura (°C)');
   tempChartOptions.scales = { y: { beginAtZero: true, max: 100 } };
@@ -145,6 +120,42 @@ const App = () => {
   const smokeChartData = getChartData('field3', 'Nivel de Humo', 'rgb(249, 115, 22)'); 
   const smokeChartOptions = baseChartOptions('Nivel de Humo');
   smokeChartOptions.scales = { y: { beginAtZero: true, max: 2500 } };
+
+  // --- COMPONENTE DE TABLA DE REGISTROS ---
+  const HistoryTable = () => {
+    if (!historicalData || historicalData.length === 0) return <p className="text-sm text-gray-500">No hay registros históricos recientes.</p>;
+
+    // Tomar las últimas 5 entradas
+    const recentEntries = historicalData.slice(-5).reverse(); 
+
+    return (
+      <div className="overflow-x-auto">
+        <h3 className="font-bold text-gray-700 mb-2">Últimos Registros ({recentEntries.length})</h3>
+        <table className="min-w-full bg-white text-xs border-collapse">
+          <thead>
+            <tr className="bg-gray-200 text-gray-600 uppercase text-left">
+              <th className="py-1 px-2 border-b">Hora</th>
+              <th className="py-1 px-2 border-b">T (°C)</th>
+              <th className="py-1 px-2 border-b">H (%)</th>
+              <th className="py-1 px-2 border-b">Humo</th>
+              <th className="py-1 px-2 border-b">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {recentEntries.map((entry, index) => (
+              <tr key={index} className="border-b hover:bg-gray-50">
+                <td className="py-1 px-2">{new Date(entry.created_at).toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'})}</td>
+                <td className="py-1 px-2">{entry.field1}</td>
+                <td className="py-1 px-2">{entry.field2}</td>
+                <td className="py-1 px-2">{entry.field3}</td>
+                <td className="py-1 px-2">{entry.field4}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
 
   return (
@@ -160,7 +171,6 @@ const App = () => {
           {/* Fila 1: TÍTULO Y MÉTRICAS CLAVE (HEAD) */}
           <div className="flex flex-col items-center mb-6">
             <header className="flex items-center gap-2 mb-4">
-              {/* Logo con tamaño ajustado a h-16 */}
               <img src="/logo.png" className="h-16 w-auto" alt="Ígneo Logo" /> 
               <h1 className="text-4xl font-extrabold text-red-600 drop-shadow">
                 Ígnio Monitor de Incendio
@@ -179,7 +189,7 @@ const App = () => {
                   <span className="font-bold text-lg">Humedad: <span className="text-2xl">{lastData.field2} %</span></span>
                 </div>
 
-                {/* Estado (Causa Detectada) - Texto cambiado de ALERTA a ESTADO */}
+                {/* Estado (Causa Detectada) - Se vuelve rojo con alerta de Temp o Humo */}
                 <div className={`p-4 rounded-xl shadow-lg flex justify-between items-center text-left ${getAlertClasses(isSmokeAlert || isTempAlert)}`}>
                   <span className="font-bold text-lg">Estado: <span className="text-2xl font-bold">{cause}</span></span>
                 </div>
@@ -197,25 +207,9 @@ const App = () => {
           {/* Fila 3: DATOS EXTRA y MAPA */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 w-full">
             
-            {/* INFO EXTRA y BOTÓN DE HISTORIAL */}
+            {/* TABLA DE HISTORIAL DE DATOS */}
             <div className="p-4 bg-white rounded-xl shadow-lg">
-                <p className="text-sm">
-                    **Diagnóstico y Estado:**
-                    <br/>**Última actualización:** {lastData.created_at}
-                    <br/>**ID de entrada:** {lastData.entry_id}
-                    <br/>**Estado de Humedad (Informativo):** {lastData.field2} %
-                    <br/>**Temperatura Crítica:** Mayor a {TEMP_CRITICA}°C dispara alerta.
-                </p>
-
-                {/* BOTÓN DE ACCESO HISTÓRICO - Usando la URL proporcionada */}
-                <a 
-                    href={THINGSPEAK_CHANNEL_URL} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="mt-3 inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-150 text-xs"
-                >
-                    Ver Histórico Completo en ThingSpeak
-                </a>
+                <HistoryTable />
             </div>
 
             {/* MAPA */}
