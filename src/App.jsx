@@ -185,19 +185,6 @@ const App = () => {
             ))}
           </tbody>
         </table>
-        
-        {/* ENLACE PARA REGISTROS DE LARGO PLAZO */}
-        <div className="mt-3 text-center">
-            <a 
-                href={THINGSPEAK_CHANNEL_URL} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-xs text-blue-600 hover:text-blue-800 font-semibold underline"
-            >
-                Ver Historial Completo en ThingSpeak
-            </a>
-        </div>
-        
       </div>
     );
   };
