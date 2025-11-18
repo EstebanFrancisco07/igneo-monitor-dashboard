@@ -24,7 +24,7 @@ const LAST_API_URL =
 // Coordenadas del sensor
 const LAT = -33.4489;
 const LON = -70.6693;
-const SENSOR_ADDRESS = "Av. Libertador Bernardo O'Higgins 3300, Santiago, Chile";
+const SENSOR_ADDRESS = "Av. Libertador Bernardo O'Higgins 3300, Santiago, Chile"; 
 
 // Umbral de temperatura crítica
 const TEMP_CRITICA = 60; 
@@ -105,7 +105,7 @@ const App = () => {
       ? 'bg-red-600 text-white shadow-xl transform scale-105 transition duration-150'
       : 'bg-white text-gray-800';
   
-  // --- FUNCIONES DE GRÁFICOS (COMPLETAS) ---
+  // --- FUNCIONES DE GRÁFICOS ---
   const getChartData = (fieldKey, label, color) => {
     return {
         labels: historicalData ? historicalData.map(feed => new Date(feed.created_at).toLocaleTimeString('es-CL')) : [],
@@ -169,7 +169,7 @@ const App = () => {
   const smokeChartOptions = baseChartOptions('Nivel de Humo');
   smokeChartOptions.scales = { y: { beginAtZero: true, max: 2500 } };
   
-  // --- COMPONENTE DE TABLA DE REGISTROS (FILTRADA Y CON FECHA) ---
+  // --- COMPONENTE DE TABLA DE REGISTROS (FILTRADA Y CONSOLIDADA) ---
   const HistoryTable = () => {
     if (!historicalData || historicalData.length === 0) return <p className="text-sm text-gray-500">No hay registros históricos recientes.</p>;
 
@@ -178,12 +178,37 @@ const App = () => {
 
     if (alertEntries.length === 0) return <p className="text-sm text-gray-500">No se encontraron eventos de alerta en los últimos 20 registros.</p>;
 
-    // 2. Tomar las últimas 5 entradas de alerta y revertir el orden
-    const recentAlerts = alertEntries.slice(-5).reverse(); 
+    // 2. CONSOLIDAR: Agrupar entradas idénticas consecutivas para contar la duración
+    const consolidatedAlerts = alertEntries.reduce((acc, current) => {
+        // Clave de identidad (T, H, Humo, Causa)
+        const currentKey = `${current.field1}-${current.field2}-${current.field3}-${current.field4}`;
+        
+        // Obtener el último evento consolidado
+        const lastConsolidated = acc.length > 0 ? acc[acc.length - 1] : null;
+        
+        // Clave del último evento consolidado
+        const lastKey = lastConsolidated ? `${lastConsolidated.field1}-${lastConsolidated.field2}-${lastConsolidated.field3}-${lastConsolidated.field4}` : null;
+        
+        // Si el evento actual es idéntico al último, incrementar el contador
+        if (lastKey === currentKey) {
+            lastConsolidated.count += 1;
+        } else {
+            // Si es un evento nuevo, inicializar el contador
+            acc.push({
+                ...current,
+                count: 1,
+            });
+        }
+        return acc;
+    }, []);
+    
+    // 3. Formatear y tomar las últimas 5 entradas consolidadas (al revés para mostrar lo más reciente arriba)
+    const finalEntries = consolidatedAlerts.reverse().slice(0, 5);
+
 
     return (
       <div className="overflow-x-auto">
-        <h3 className="font-bold text-gray-700 mb-2">Últimos Registros de Alerta ({recentAlerts.length})</h3>
+        <h3 className="font-bold text-gray-700 mb-2">Últimos Registros de Alerta ({finalEntries.length})</h3>
         <table className="min-w-full bg-white text-xs border-collapse">
           <thead>
             <tr className="bg-gray-200 text-gray-600 uppercase text-left">
@@ -192,11 +217,12 @@ const App = () => {
               <th className="py-1 px-2 border-b">T (°C)</th>
               <th className="py-1 px-2 border-b">H (%)</th>
               <th className="py-1 px-2 border-b">Humo</th>
-              <th className="py-1 px-2 border-b">Estado</th>
+              <th className="py-1 px-2 border-b">ESTADO</th>
+              <th className="py-1 px-2 border-b">CANT.</th> {/* <-- COLUMNA CANTIDAD */}
             </tr>
           </thead>
           <tbody>
-            {recentAlerts.map((entry, index) => (
+            {finalEntries.map((entry, index) => (
               <tr key={index} className="border-b hover:bg-red-50"> 
                 <td className="py-1 px-2">{new Date(entry.created_at).toLocaleDateString('es-CL')}</td> 
                 <td className="py-1 px-2">{new Date(entry.created_at).toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'})}</td>
@@ -204,6 +230,7 @@ const App = () => {
                 <td className="py-1 px-2">{entry.field2}</td>
                 <td className="py-1 px-2">{entry.field3}</td>
                 <td className="py-1 px-2 font-semibold text-red-700">{entry.field4}</td>
+                <td className="py-1 px-2 font-bold">{entry.count}</td> {/* <-- MOSTRAR CANTIDAD */}
               </tr>
             ))}
           </tbody>
