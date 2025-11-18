@@ -107,10 +107,32 @@ const App = () => {
       ? 'bg-red-600 text-white shadow-xl transform scale-105 transition duration-150'
       : 'bg-white text-gray-800';
   
-  // --- FUNCIONES DE GRÁFICOS (manteniendo la limpieza) ---
-  const getChartData = (fieldKey, label, color) => { /* ... */ return {}; };
-  const baseChartOptions = (titleText) => ({ /* ... */ });
-  
+  // --- FUNCIONES DE GRÁFICOS (COMPLETAS) ---
+  const getChartData = (fieldKey, label, color) => {
+    return {
+        labels: historicalData ? historicalData.map(feed => new Date(feed.created_at).toLocaleTimeString('es-CL')) : [],
+        datasets: [
+            {
+                label: label,
+                data: historicalData ? historicalData.map(feed => parseFloat(feed[fieldKey])) : [],
+                borderColor: color, 
+                backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.5)'),
+                tension: 0.1,
+            },
+        ],
+    };
+  };
+
+  const baseChartOptions = (titleText) => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+          title: { display: true, text: titleText, font: { size: 14, weight: 'bold' } },
+          legend: { display: false } 
+      },
+  });
+  // ------------------------------------------
+
   // Definiciones de Gráficos (Escalas fijas)
   const tempChartData = getChartData('field1', 'Temperatura (°C)', 'rgb(59, 130, 246)'); 
   const tempChartOptions = baseChartOptions('Temperatura (°C)');
@@ -124,11 +146,10 @@ const App = () => {
   const smokeChartOptions = baseChartOptions('Nivel de Humo');
   smokeChartOptions.scales = { y: { beginAtZero: true, max: 2500 } };
   
-  // --- COMPONENTE DE TABLA DE REGISTROS CORREGIDO ---
+  // --- COMPONENTE DE TABLA DE REGISTROS ---
   const HistoryTable = () => {
     if (!historicalData || historicalData.length === 0) return <p className="text-sm text-gray-500">No hay registros históricos recientes.</p>;
 
-    // Tomar las últimas 5 entradas
     const recentEntries = historicalData.slice(-5).reverse(); 
 
     return (
