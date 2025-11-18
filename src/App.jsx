@@ -27,7 +27,7 @@ const LON = -70.6693;
 
 const App = () => {
   const [lastData, setLastData] = useState(null);
-  const [historicalData, setHistoricalData = useState(null);
+  const [historicalData, setHistoricalData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
