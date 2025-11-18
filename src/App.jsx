@@ -17,15 +17,18 @@ ChartJS.register(
 
 // URLs de ThingSpeak
 const HISTORICAL_API_URL =
-  "https://api.thingspeak.com/channels/2998313/feeds.json?results=20"; // Usaremos estos 20 resultados para la tabla
+  "https://api.thingspeak.com/channels/2998313/feeds.json?results=20"; 
 const LAST_API_URL =
   "https://api.thingspeak.com/channels/2998313/feeds/last.json";
+
+// URL del Canal Completo (Para el botón de histórico)
+const THINGSPEAK_CHANNEL_URL = "https://thingspeak.mathworks.com/channels/2998313";
 
 // Coordenadas del sensor
 const LAT = -33.4489;
 const LON = -70.6693;
 
-// --- UMBRAL DE TEMPERATURA CRÍTICA (60°C) ---
+// Umbral de temperatura crítica
 const TEMP_CRITICA = 60; 
 
 // Icono (Requiere 'red-arrow.png' en public/)
@@ -35,7 +38,6 @@ const redArrowIcon = new Icon({
   iconAnchor: [19, 38],      
   popupAnchor: [0, -38]      
 });
-// --------------------------------------------------------
 
 const App = () => {
   const [lastData, setLastData] = useState(null);
@@ -105,10 +107,11 @@ const App = () => {
       ? 'bg-red-600 text-white shadow-xl transform scale-105 transition duration-150'
       : 'bg-white text-gray-800';
   
-  // Función de Gráficos (sin cambios)
+  // --- FUNCIONES DE GRÁFICOS (manteniendo la limpieza) ---
   const getChartData = (fieldKey, label, color) => { /* ... */ return {}; };
   const baseChartOptions = (titleText) => ({ /* ... */ });
   
+  // Definiciones de Gráficos (Escalas fijas)
   const tempChartData = getChartData('field1', 'Temperatura (°C)', 'rgb(59, 130, 246)'); 
   const tempChartOptions = baseChartOptions('Temperatura (°C)');
   tempChartOptions.scales = { y: { beginAtZero: true, max: 100 } };
@@ -120,8 +123,8 @@ const App = () => {
   const smokeChartData = getChartData('field3', 'Nivel de Humo', 'rgb(249, 115, 22)'); 
   const smokeChartOptions = baseChartOptions('Nivel de Humo');
   smokeChartOptions.scales = { y: { beginAtZero: true, max: 2500 } };
-
-  // --- COMPONENTE DE TABLA DE REGISTROS ---
+  
+  // --- COMPONENTE DE TABLA DE REGISTROS CORREGIDO ---
   const HistoryTable = () => {
     if (!historicalData || historicalData.length === 0) return <p className="text-sm text-gray-500">No hay registros históricos recientes.</p>;
 
@@ -156,6 +159,7 @@ const App = () => {
       </div>
     );
   };
+  // -----------------------------------------------------
 
 
   return (
@@ -207,7 +211,7 @@ const App = () => {
           {/* Fila 3: DATOS EXTRA y MAPA */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 w-full">
             
-            {/* TABLA DE HISTORIAL DE DATOS */}
+            {/* TABLA DE HISTORIAL DE DATOS (Componente de tabla llamado aquí) */}
             <div className="p-4 bg-white rounded-xl shadow-lg">
                 <HistoryTable />
             </div>
