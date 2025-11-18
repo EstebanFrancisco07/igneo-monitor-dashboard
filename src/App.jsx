@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { Icon } from 'leaflet'; // <-- IMPORTAR LA CLASE ICON DE LEAFLET
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 
@@ -20,6 +21,15 @@ const LAST_API_URL =
 
 const LAT = -33.4489;
 const LON = -70.6693;
+
+// --- DEFINICIÓN DEL ICONO PERSONALIZADO (FLECHA ROJA) ---
+const redArrowIcon = new Icon({
+  iconUrl: '/red-arrow.png', // <-- URL de tu imagen de flecha roja
+  iconSize: [38, 38],        // Tamaño del icono (ancho, alto)
+  iconAnchor: [19, 38],      // Punto del icono que corresponde a la ubicación del marcador (mitad inferior)
+  popupAnchor: [0, -38]      // Punto donde se abre el popup en relación al icono
+});
+// --------------------------------------------------------
 
 const App = () => {
   const [lastData, setLastData] = useState(null);
@@ -92,7 +102,7 @@ const App = () => {
   tempChartOptions.scales = {
       y: {
           beginAtZero: true,
-          max: 100, // <--- AJUSTE CLAVE: MAX 100 para T/H
+          max: 100, 
       }
   };
 
@@ -101,7 +111,7 @@ const App = () => {
   humidityChartOptions.scales = {
       y: {
           beginAtZero: true,
-          max: 100, // <--- AJUSTE CLAVE: MAX 100 para T/H
+          max: 100, 
       }
   };
   
@@ -110,7 +120,7 @@ const App = () => {
   smokeChartOptions.scales = {
       y: {
           beginAtZero: true,
-          max: 2500, // <--- AJUSTE CLAVE: MAX 2500 para Humo/PPM
+          max: 2500, 
       }
   };
 
@@ -193,7 +203,7 @@ const App = () => {
                   style={{ height: "100%", width: "100%" }}
                 >
                   <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <Marker position={[LAT, LON]}>
+                  <Marker position={[LAT, LON]} icon={redArrowIcon}> {/* <-- APLICAR EL ICONO AQUI */}
                     <Popup>Ubicación del sensor Ígneo</Popup>
                   </Marker>
                 </MapContainer>
