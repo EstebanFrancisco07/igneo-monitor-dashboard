@@ -3,7 +3,6 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import { Icon } from 'leaflet'; 
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
-// Asegúrate de que tienes instalado 'chartjs-plugin-annotation' (npm install chartjs-plugin-annotation) si no funciona la línea punteada.
 
 // Registro de componentes de Chart.js
 ChartJS.register(
@@ -25,8 +24,6 @@ const LAST_API_URL =
 // Coordenadas del sensor
 const LAT = -33.4489;
 const LON = -70.6693;
-// Dirección física de referencia para el popup del mapa
-const SENSOR_ADDRESS = "Av. Libertador Bernardo O'Higgins 3300, Santiago, Chile"; 
 
 // Umbral de temperatura crítica
 const TEMP_CRITICA = 60; 
@@ -96,7 +93,8 @@ const App = () => {
 
   useEffect(() => {
     fetchData(); 
-    const interval = setInterval(fetchData, 5000); 
+    // Mejora UX: Sincronizar el fetch con la frecuencia de envío de la MCU (16 segundos)
+    const interval = setInterval(fetchData, 16000); 
     return () => clearInterval(interval);
   }, []);
 
@@ -136,20 +134,19 @@ const App = () => {
   // Definiciones de Gráficos (Escalas fijas)
   const tempChartData = getChartData('field1', 'Temperatura (°C)', 'rgb(59, 130, 246)'); 
   const tempChartOptions = {
-      ...baseChartOptions('Temperatura (°C)'), // Copia opciones base
+      ...baseChartOptions('Temperatura (°C)'), 
       scales: { y: { beginAtZero: true, max: 100 } },
       plugins: {
           ...baseChartOptions('Temperatura (°C)').plugins,
-          // LÍNEA DE REFERENCIA DE ALERTA A 60°C
           annotation: {
               annotations: {
                   tempThreshold: {
                       type: 'line',
                       yMin: TEMP_CRITICA,
                       yMax: TEMP_CRITICA,
-                      borderColor: 'rgb(255, 99, 132)', // Rojo
+                      borderColor: 'rgb(255, 99, 132)', 
                       borderWidth: 2,
-                      borderDash: [5, 5], // Línea punteada
+                      borderDash: [5, 5], 
                       label: {
                           content: 'Umbral Crítico',
                           enabled: true,
@@ -172,39 +169,79 @@ const App = () => {
   const smokeChartOptions = baseChartOptions('Nivel de Humo');
   smokeChartOptions.scales = { y: { beginAtZero: true, max: 2500 } };
   
-  // --- COMPONENTE DE TABLA DE REGISTROS (FILTRADA Y CON FECHA) ---
+  // --- COMPONENTE DE TABLA DE REGISTROS (CONSOLIDADA Y FILTRADA) ---
   const HistoryTable = () => {
     if (!historicalData || historicalData.length === 0) return <p className="text-sm text-gray-500">No hay registros históricos recientes.</p>;
 
+    // 1. FILTRAR: Solo entradas donde el ESTADO (field4) no sea 'NORMAL'
     const alertEntries = historicalData.filter(entry => entry.field4 !== 'NORMAL');
 
     if (alertEntries.length === 0) return <p className="text-sm text-gray-500">No se encontraron eventos de alerta en los últimos 20 registros.</p>;
 
-    const recentAlerts = alertEntries.slice(-5).reverse(); 
+    // 2. CONSOLIDAR: Agrupar entradas idénticas consecutivas
+    const consolidatedAlerts = alertEntries.reduce((acc, current) => {
+        // Generar una clave de identidad (excluyendo el entry_id único)
+        const currentKey = `${current.field1}-${current.field2}-${current.field3}-${current.field4}`;
+        
+        // Obtener el último evento consolidado
+        const lastConsolidated = acc.length > 0 ? acc[acc.length - 1] : null;
+        
+        // Generar la clave del último evento consolidado (usando la misma lógica)
+        const lastKey = lastConsolidated ? `${lastConsolidated.field1}-${lastConsolidated.field2}-${lastConsolidated.field3}-${lastConsolidated.field4}` : null;
+        
+        // Si el evento actual es idéntico al último, incrementar el contador
+        if (lastKey === currentKey) {
+            lastConsolidated.count += 1;
+            // Actualizar la hora del último evento para reflejar la hora de finalización del evento
+            lastConsolidated.end_time = new Date(current.created_at).toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'});
+        } else {
+            // Si es un evento nuevo, inicializar el contador
+            acc.push({
+                ...current,
+                count: 1,
+                start_time: new Date(current.created_at).toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'}),
+                end_time: null // Se llena si se repite, sino queda nulo
+            });
+        }
+        return acc;
+    }, []);
+    
+    // 3. Formatear y tomar las últimas 5 entradas consolidadas (al revés para mostrar lo más reciente arriba)
+    const finalEntries = consolidatedAlerts.reverse().slice(0, 5);
+    
+    const formatTime = (entry) => {
+        if (entry.count > 1) {
+            return `${entry.start_time} - ${entry.end_time}`;
+        }
+        return entry.start_time;
+    };
+
 
     return (
       <div className="overflow-x-auto">
-        <h3 className="font-bold text-gray-700 mb-2">Últimos Registros de Alerta ({recentAlerts.length})</h3>
+        <h3 className="font-bold text-gray-700 mb-2">Últimos Registros de Alerta ({finalEntries.length})</h3>
         <table className="min-w-full bg-white text-xs border-collapse">
           <thead>
             <tr className="bg-gray-200 text-gray-600 uppercase text-left">
               <th className="py-1 px-2 border-b">FECHA</th>
-              <th className="py-1 px-2 border-b">HORA</th>
+              <th className="py-1 px-2 border-b">HORA / DURACIÓN</th> {/* <-- COLUMNA ACTUALIZADA */}
               <th className="py-1 px-2 border-b">T (°C)</th>
               <th className="py-1 px-2 border-b">H (%)</th>
               <th className="py-1 px-2 border-b">Humo</th>
-              <th className="py-1 px-2 border-b">Estado</th>
+              <th className="py-1 px-2 border-b">ESTADO</th>
+              <th className="py-1 px-2 border-b">CANT.</th> {/* <-- COLUMNA CANTIDAD */}
             </tr>
           </thead>
           <tbody>
-            {recentAlerts.map((entry, index) => (
+            {finalEntries.map((entry, index) => (
               <tr key={index} className="border-b hover:bg-red-50"> 
                 <td className="py-1 px-2">{new Date(entry.created_at).toLocaleDateString('es-CL')}</td> 
-                <td className="py-1 px-2">{new Date(entry.created_at).toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'})}</td>
+                <td className="py-1 px-2">{formatTime(entry)}</td>
                 <td className="py-1 px-2">{entry.field1}</td>
                 <td className="py-1 px-2">{entry.field2}</td>
                 <td className="py-1 px-2">{entry.field3}</td>
                 <td className="py-1 px-2 font-semibold text-red-700">{entry.field4}</td>
+                <td className="py-1 px-2 font-bold">{entry.count}</td> {/* <-- MOSTRAR CANTIDAD */}
               </tr>
             ))}
           </tbody>
@@ -235,23 +272,23 @@ const App = () => {
             </header>
 
             {/* BARRA DE MÉTRICAS SUPERIOR (AJUSTADA PARA MOBILE) */}
-            <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-w-4xl"> 
+            <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl"> 
                 {/* Temp con alerta */}
-                <div className={`p-4 rounded-xl shadow-lg flex flex-col justify-center items-start sm:items-center text-left sm:text-center ${getAlertClasses(isTempAlert)}`}>
+                <div className={`p-4 rounded-xl shadow-lg flex flex-col justify-center items-center text-center ${getAlertClasses(isTempAlert)}`}>
                   <span className="font-bold text-lg">Temperatura:</span> 
-                  <span className="text-3xl sm:text-2xl font-bold">{lastData.field1} °C</span>
+                  <span className="text-3xl font-bold">{lastData.field1} °C</span>
                 </div>
                 
                 {/* Humedad (Informativa, sin alerta roja) */}
-                <div className={`p-4 bg-white text-gray-800 rounded-xl shadow-lg flex flex-col justify-center items-start sm:items-center text-left sm:text-center`}>
+                <div className={`p-4 bg-white text-gray-800 rounded-xl shadow-lg flex flex-col justify-center items-center text-center`}>
                   <span className="font-bold text-lg">Humedad:</span> 
-                  <span className="text-3xl sm:text-2xl font-bold">{lastData.field2} %</span>
+                  <span className="text-3xl font-bold">{lastData.field2} %</span>
                 </div>
 
                 {/* Estado (Causa Detectada) - Se vuelve rojo con alerta de Temp o Humo */}
-                <div className={`p-4 rounded-xl shadow-lg flex flex-col justify-center items-start sm:items-center text-left sm:text-center ${getAlertClasses(isSmokeAlert || isTempAlert)}`}>
+                <div className={`p-4 rounded-xl shadow-lg flex flex-col justify-center items-center text-center ${getAlertClasses(isSmokeAlert || isTempAlert)}`}>
                   <span className="font-bold text-lg">Estado:</span> 
-                  <span className="text-3xl sm:text-2xl font-bold">{cause}</span>
+                  <span className="text-3xl font-bold">{cause}</span>
                 </div>
             </div>
           </div>
@@ -272,7 +309,7 @@ const App = () => {
                 <HistoryTable />
             </div>
 
-            {/* MAPA con dirección actualizada */}
+            {/* MAPA */}
             <div className="h-40 rounded-xl overflow-hidden shadow-lg">
                 <MapContainer
                   center={[LAT, LON]}
@@ -283,7 +320,7 @@ const App = () => {
                   <Marker position={[LAT, LON]} icon={redArrowIcon}> 
                     <Popup>
                         <strong className="block mb-1">Ubicación del sensor Ígneo</strong>
-                        {SENSOR_ADDRESS} {/* ¡DIRECCIÓN AGREGADA AQUÍ! */}
+                        {SENSOR_ADDRESS}
                     </Popup>
                   </Marker>
                 </MapContainer>
