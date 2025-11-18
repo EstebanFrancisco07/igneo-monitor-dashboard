@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import { Icon } from 'leaflet'; 
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
+// La librería chartjs-plugin-annotation es necesaria y se asume que está instalada o disponible.
 
 // Registro de componentes de Chart.js
 ChartJS.register(
@@ -132,8 +133,34 @@ const App = () => {
 
   // Definiciones de Gráficos (Escalas fijas)
   const tempChartData = getChartData('field1', 'Temperatura (°C)', 'rgb(59, 130, 246)'); 
-  const tempChartOptions = baseChartOptions('Temperatura (°C)');
-  tempChartOptions.scales = { y: { beginAtZero: true, max: 100 } };
+  const tempChartOptions = {
+      ...baseChartOptions('Temperatura (°C)'), // Copia opciones base
+      scales: { y: { beginAtZero: true, max: 100 } },
+      plugins: {
+          ...baseChartOptions('Temperatura (°C)').plugins,
+          // LÍNEA DE REFERENCIA DE ALERTA A 60°C
+          annotation: {
+              annotations: {
+                  tempThreshold: {
+                      type: 'line',
+                      yMin: TEMP_CRITICA,
+                      yMax: TEMP_CRITICA,
+                      borderColor: 'rgb(255, 99, 132)', // Rojo
+                      borderWidth: 2,
+                      borderDash: [5, 5], // Línea punteada
+                      label: {
+                          content: 'Umbral Crítico',
+                          enabled: true,
+                          position: 'start',
+                          backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                          color: 'white',
+                          font: { size: 10 }
+                      }
+                  }
+              }
+          }
+      }
+  };
   
   const humidityChartData = getChartData('field2', 'Humedad (%)', 'rgb(34, 197, 94)'); 
   const humidityChartOptions = baseChartOptions('Humedad (%)');
@@ -147,10 +174,12 @@ const App = () => {
   const HistoryTable = () => {
     if (!historicalData || historicalData.length === 0) return <p className="text-sm text-gray-500">No hay registros históricos recientes.</p>;
 
+    // 1. FILTRAR: Solo entradas donde el ESTADO (field4) no sea 'NORMAL'
     const alertEntries = historicalData.filter(entry => entry.field4 !== 'NORMAL');
 
     if (alertEntries.length === 0) return <p className="text-sm text-gray-500">No se encontraron eventos de alerta en los últimos 20 registros.</p>;
 
+    // 2. Tomar las últimas 5 entradas de alerta y revertir el orden
     const recentAlerts = alertEntries.slice(-5).reverse(); 
 
     return (
@@ -205,9 +234,8 @@ const App = () => {
               </h1>
             </header>
 
-            {/* BARRA DE MÉTRICAS SUPERIOR (CORRECCIÓN MOBILE) */}
+            {/* BARRA DE MÉTRICAS SUPERIOR (AJUSTADA PARA MOBILE) */}
             <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-w-4xl"> 
-                
                 {/* Temp con alerta */}
                 <div className={`p-4 rounded-xl shadow-lg flex flex-col justify-center items-start sm:items-center text-left sm:text-center ${getAlertClasses(isTempAlert)}`}>
                   <span className="font-bold text-lg">Temperatura:</span> 
